@@ -3,12 +3,13 @@ Description=Metier — Find your calling, screen out the noise
 After=network.target
 
 [Service]
-WorkingDirectory=/home/pi/metier
-EnvironmentFile=/home/pi/metier/.env
-ExecStart=/usr/bin/python3 /home/pi/metier/app.py
+# Edit these three paths and the user to match your host
+WorkingDirectory=/path/to/metier
+EnvironmentFile=/path/to/metier/.env
+ExecStart=/usr/bin/python3 /path/to/metier/app.py
 Restart=always
 RestartSec=5
-User=pi
+User=youruser
 
 [Install]
 WantedBy=multi-user.target

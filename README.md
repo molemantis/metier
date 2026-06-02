@@ -72,7 +72,11 @@ Open **[http://localhost:5000](http://localhost:5000)**
 
 ---
 
-## Self-hosting on a Raspberry Pi
+## Running as a service (Linux / systemd)
+
+To keep Metier running in the background on any systemd-based Linux host, a unit
+file is included. Edit the paths in `metier.service` to match where you cloned it,
+then:
 
 ```bash
 sudo cp metier.service /etc/systemd/system/
@@ -80,6 +84,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable metier
 sudo systemctl start metier
 ```
+
+You can also deploy it anywhere that runs Python — a VPS, a home server, or a
+platform like Railway, Render, or Fly.io.
 
 ---
 
@@ -101,7 +108,7 @@ metier/
 ├── data/                   # SQLite database (git-ignored)
 ├── requirements.txt
 ├── .env.example
-└── metier.service          # systemd unit for Raspberry Pi
+└── metier.service          # systemd unit (optional, for Linux hosts)
 ```
 
 ---
