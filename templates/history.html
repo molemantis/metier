@@ -368,7 +368,7 @@
       </tr></thead><tbody>`;
 
     items.forEach(item => {
-      const date = new Date(item.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      const date = new Date(item.created_at).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'});
       const opts = STATUSES.map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('');
 
       // Legit badge: vetted → clickable score; manual → dash
