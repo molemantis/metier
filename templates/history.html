@@ -345,11 +345,11 @@
     }
 
     let html = `<table class="tbl"><thead><tr>
+        <th style="width:66px;text-align:center" title="Legitimacy score — higher is safer (green = go, red = scam)">Score</th>
         <th style="width:118px">Status</th>
         <th>Job</th>
         <th class="hide-sm">Company</th>
         <th class="hide-sm">Source</th>
-        <th style="width:60px;text-align:center" title="Legitimacy score — higher is safer (green = go, red = scam)">Legit</th>
         <th class="hide-sm">Date</th>
         <th style="width:30px"></th>
       </tr></thead><tbody>`;
@@ -379,11 +379,11 @@
 
       html += `
         <tr class="trow">
+          <td style="text-align:center">${badge}</td>
           <td><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
           <td><div class="cell-main">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
           <td class="hide-sm">${source?`<span class="src-tag">${source}</span>`:'<span class="dash">—</span>'}</td>
-          <td style="text-align:center">${badge}</td>
           <td class="hide-sm"><div class="cell-dim" style="white-space:nowrap">${date}</div></td>
           <td><button class="del-btn" onclick="delEntry(${item.id})" title="Delete">✕</button></td>
         </tr>`;
