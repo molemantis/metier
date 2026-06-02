@@ -118,6 +118,11 @@
     .note-input:hover{background:#f1f5f9}
     .note-input:focus{outline:none;background:#fff;border-color:var(--accent);color:var(--text)}
     .note-input::placeholder{color:#b8c0cc;font-style:italic}
+    .modal-note{width:100%;min-height:62px;border:1.5px solid var(--border);border-radius:8px;
+                padding:9px 11px;font-family:inherit;font-size:.85rem;color:var(--text);
+                background:var(--surface);resize:vertical;outline:none;transition:border-color .12s}
+    .modal-note:focus{border-color:var(--accent)}
+    .modal-note::placeholder{color:#94a3b8}
 
     /* Modal (analysis + add job) */
     .overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100;
@@ -470,9 +475,20 @@
       if(!res.ok){body.innerHTML=`<div class="modal-loading">Error: ${d.error}</div>`;return;}
       renderModal(d);
       const item=allItems.find(i=>i.id===id);
+      // Editable notes at the top of the modal
+      const noteVal=(item&&item.notes?item.notes:'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      body.insertAdjacentHTML('afterbegin',
+        `<div class="dc"><div class="dc-hd">📝 Your notes</div>
+           <textarea class="modal-note" placeholder="Add a note — applied date, follow-up, anything…"
+             onchange="saveNoteFromModal(${id}, this.value)">${noteVal}</textarea></div>`);
       if(item){const date=new Date(item.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
         title.textContent=(item.recruiter_name||item.job_title||'Analysis')+` · ${date}`;}
     } catch { body.innerHTML='<div class="modal-loading">Failed to load.</div>'; }
+  }
+
+  async function saveNoteFromModal(id, value){
+    await saveNote(id, value);   // posts + updates allItems + toast
+    renderTable();               // sync the inline note cell behind the modal
   }
   function closeModalDirect(){document.getElementById('overlay').classList.remove('open');document.body.style.overflow='';}
   function closeModal(e){if(e.target===document.getElementById('overlay'))closeModalDirect();}
