@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+  <defs>
+    <!-- Steel-silver meteor tail -->
+    <linearGradient id="tail" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#8a8d8f" stop-opacity="0"/>
+      <stop offset="55%" stop-color="#8a8d8f" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#d4d6d8" stop-opacity="0.95"/>
+    </linearGradient>
+    <!-- Navy → steel meteor head -->
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#eef0f1"/>
+      <stop offset="45%" stop-color="#3a546f"/>
+      <stop offset="100%" stop-color="#0c2340"/>
+    </radialGradient>
+  </defs>
+
+  <!-- ── Meteor icon ── -->
+  <g transform="translate(6,4)">
+    <path d="M58 8 L30 44 L40 50 Z" fill="url(#tail)"/>
+    <path d="M52 6 L31 40 L37 44 Z" fill="#d4d6d8" opacity="0.5"/>
+    <circle cx="54" cy="14" r="1.6" fill="#8a8d8f" opacity="0.85"/>
+    <circle cx="60" cy="20" r="1.1" fill="#8a8d8f" opacity="0.55"/>
+    <circle cx="50" cy="9"  r="1.0" fill="#d4d6d8" opacity="0.7"/>
+    <circle cx="30" cy="46" r="17" fill="#3a546f" opacity="0.16"/>
+    <circle cx="30" cy="46" r="12" fill="url(#glow)" stroke="#0c2340" stroke-width="1.5"/>
+    <circle cx="30" cy="46" r="6.5" fill="none" stroke="#d4d6d8" stroke-width="1.1" opacity="0.6"/>
+    <circle cx="30" cy="46" r="3" fill="#eef0f1"/>
+    <circle cx="26" cy="42" r="2" fill="#fff" opacity="0.85"/>
+  </g>
+
+  <!-- ── Wordmark: Me (navy) + tier (steel silver) ── -->
+  <text x="80" y="48"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+    font-size="40" font-weight="800" letter-spacing="-1">
+    <tspan fill="#0c2340">Me</tspan><tspan fill="#8a8d8f">tier</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="81" y="66"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+    font-size="9.5" font-weight="600" fill="#9a9da0" letter-spacing="0.07em">Find your calling. Screen out the noise.</text>
+</svg>

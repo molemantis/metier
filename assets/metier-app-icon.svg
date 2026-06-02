@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#13314f"/>
+      <stop offset="100%" stop-color="#0c2340"/>
+    </linearGradient>
+    <linearGradient id="tailI" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#c4c6c8" stop-opacity="0"/>
+      <stop offset="50%"  stop-color="#b5b8ba" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#eef0f1" stop-opacity="0.95"/>
+    </linearGradient>
+    <radialGradient id="headI" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#ffffff"/>
+      <stop offset="42%" stop-color="#b5b8ba"/>
+      <stop offset="100%" stop-color="#3a546f"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Navy rounded square -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Faint starfield (steel) -->
+  <circle cx="120" cy="110" r="3" fill="#c4c6c8" opacity="0.5"/>
+  <circle cx="400" cy="150" r="4" fill="#c4c6c8" opacity="0.4"/>
+  <circle cx="430" cy="360" r="3" fill="#c4c6c8" opacity="0.5"/>
+  <circle cx="150" cy="400" r="2.5" fill="#c4c6c8" opacity="0.4"/>
+  <circle cx="360" cy="90"  r="2" fill="#c4c6c8" opacity="0.35"/>
+
+  <!-- ── Meteor ── -->
+  <path d="M430 96 L210 300 L286 356 Z" fill="url(#tailI)"/>
+  <path d="M400 80 L214 290 L262 322 Z" fill="#eef0f1" opacity="0.4"/>
+
+  <!-- Trailing sparks -->
+  <circle cx="408" cy="120" r="7" fill="#c4c6c8" opacity="0.8"/>
+  <circle cx="452" cy="150" r="5" fill="#b5b8ba" opacity="0.6"/>
+  <circle cx="388" cy="96"  r="4" fill="#ffffff" opacity="0.7"/>
+
+  <!-- Glow halo -->
+  <circle cx="205" cy="318" r="120" fill="#aeb2b5" opacity="0.15"/>
+  <!-- Meteor head -->
+  <circle cx="205" cy="318" r="86" fill="url(#headI)" stroke="#c4c6c8" stroke-width="6"/>
+  <!-- Reticle ring -->
+  <circle cx="205" cy="318" r="48" fill="none" stroke="#eef0f1" stroke-width="7" opacity="0.45"/>
+  <!-- Hot core -->
+  <circle cx="205" cy="318" r="22" fill="#ffffff"/>
+  <!-- Highlight -->
+  <circle cx="182" cy="296" r="14" fill="#ffffff" opacity="0.85"/>
+
+  <!-- Wordmark hint -->
+  <text x="256" y="492"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+    font-size="26" font-weight="800" fill="#c4c6c8" opacity="0.55"
+    text-anchor="middle" letter-spacing="3">METIER</text>
+</svg>

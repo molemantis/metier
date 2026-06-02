@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/assets/metier-icon-small.svg" />
+  <title>Job Tracker · Metier</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#eef0f2;--surface:#fff;--border:#cdd1d4;--text:#0c2340;--muted:#6b7682;
+      --accent:#0c2340;--accent-h:#081a30;
+      --go:#0f766e;--go-bg:#f0fdfa;--go-bd:#5eead4;
+      --watch:#92400e;--watch-bg:#fffbeb;--watch-bd:#fbbf24;
+      --concern:#b45309;--concern-bg:#fff7ed;--concern-bd:#fed7aa;
+      --away:#991b1b;--away-bg:#fff1f2;--away-bd:#fecdd3;
+      --green:#059669;--green-bg:#f0fdf4;--green-bd:#a7f3d0;
+      --red:#dc2626;--red-bg:#fef2f2;--red-bd:#fecaca;
+      --amber:#d97706;--amber-bg:#fffbeb;--amber-bd:#fde68a;
+      --r:12px;--sh:0 2px 8px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04)
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg);color:var(--text);min-height:100vh;padding:28px 16px 80px;line-height:1.6}
+    .page{max-width:960px;margin:0 auto}
+
+    /* Header */
+    .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+    .hdr-left{display:flex;align-items:center;gap:12px}
+    .back{font-size:.83rem;color:var(--accent);text-decoration:none;font-weight:600}
+    .back:hover{text-decoration:underline}
+    .hdr h1{font-size:1.3rem;font-weight:800}
+    .hdr-right{display:flex;align-items:center;gap:10px}
+    .count{font-size:.78rem;background:var(--border);color:var(--muted);padding:3px 10px;border-radius:20px;font-weight:600}
+    .add-btn{font-size:.8rem;font-weight:700;color:#fff;background:var(--accent);border:none;
+             border-radius:8px;padding:7px 14px;cursor:pointer;font-family:inherit;transition:background .14s}
+    .add-btn:hover{background:var(--accent-h)}
+
+    /* Nav links */
+    .hdr-nav{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:16px}
+    .nav-link{font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;
+              padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .14s;
+              background:none;border:none;font-family:inherit}
+    .nav-link:hover{color:var(--accent);background:var(--accent-bg)}
+    .nav-link.active{color:var(--accent);background:var(--accent-bg);font-weight:700}
+
+    /* Subtitle */
+    .page-sub{font-size:.83rem;color:var(--muted);margin:-6px 0 16px;line-height:1.5;max-width:640px}
+
+    /* Source tabs */
+    .src-tabs{display:inline-flex;gap:2px;background:#e3e7ec;border-radius:10px;padding:3px;margin-bottom:12px}
+    .srctab{border:none;background:none;font-family:inherit;font-size:.79rem;font-weight:700;
+            color:var(--muted);padding:6px 14px;border-radius:8px;cursor:pointer;transition:all .14s}
+    .srctab:hover{color:var(--accent)}
+    .srctab.active{background:var(--surface);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+    /* Filters */
+    .filters{display:flex;gap:7px;margin-bottom:16px;flex-wrap:wrap}
+    .fb{padding:5px 13px;border:1.5px solid var(--border);background:var(--surface);border-radius:20px;
+        font-size:.78rem;font-weight:600;cursor:pointer;transition:all .14s;color:var(--muted);font-family:inherit}
+    .fb:hover{border-color:var(--accent);color:var(--accent)}
+    .fb.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+    /* Table */
+    .tbl{width:100%;border-collapse:separate;border-spacing:0 7px}
+    .tbl thead th{font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                  color:var(--muted);padding:0 12px 4px;text-align:left;white-space:nowrap}
+    .trow{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);transition:transform .1s}
+    .trow:hover{transform:translateY(-1px)}
+    .trow td{padding:12px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);vertical-align:middle}
+    .trow td:first-child{border-left:1px solid var(--border);border-radius:var(--r) 0 0 var(--r);padding-left:14px}
+    .trow td:last-child {border-right:1px solid var(--border);border-radius:0 var(--r) var(--r) 0;padding-right:12px}
+
+    /* Status dropdown */
+    .status-sel{font-size:.76rem;font-weight:700;border:1.5px solid;border-radius:20px;
+                padding:4px 8px;cursor:pointer;font-family:inherit;appearance:none;
+                -webkit-appearance:none;text-align:center;outline:none;min-width:104px}
+    .st-Interested  {background:#f1f5f9;border-color:#cbd5e1;color:#475569}
+    .st-Applied     {background:var(--accent-bg,#eef3f9);border-color:#b8cce0;color:var(--accent)}
+    .st-Interviewing{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber)}
+    .st-Offer       {background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+    .st-Rejected    {background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+    .st-Ghosted     {background:#ede9fe;border-color:#ddd6fe;color:#6d28d9}
+    .st-Scam        {background:#7f1d1d;border-color:#7f1d1d;color:#fff}
+
+    /* Score badge */
+    .sbadge-wrap{display:inline-flex;flex-direction:column;align-items:center;cursor:pointer;
+                 transition:transform .15s;user-select:none}
+    .sbadge-wrap:hover{transform:scale(1.08)}
+    .sbadge-wrap:hover .sbadge::after{opacity:1}
+    .sbadge{display:inline-flex;align-items:center;justify-content:center;position:relative;
+            width:40px;height:40px;border-radius:50%;font-size:.9rem;font-weight:900;color:#fff;flex-shrink:0}
+    .sbadge::after{content:"🔍";position:absolute;inset:0;display:flex;align-items:center;
+                   justify-content:center;font-size:.85rem;background:rgba(0,0,0,.45);
+                   border-radius:50%;opacity:0;transition:opacity .15s}
+    .sbadge.go{background:var(--go)}.sbadge.watch{background:var(--watch)}
+    .sbadge.concern{background:var(--concern)}.sbadge.away{background:var(--away)}
+    .sbadge.none{background:#e2e8f0;color:#94a3b8;font-size:1rem;cursor:default}
+    .slabel{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;text-align:center}
+    .slabel.go{color:var(--go)}.slabel.watch{color:var(--watch)}
+    .slabel.concern{color:var(--concern)}.slabel.away{color:var(--away)}
+    .slabel.none{color:#94a3b8}
+
+    /* Cells */
+    .cell-main{font-weight:600;font-size:.86rem;color:var(--text)}
+    .cell-sub {font-size:.74rem;color:var(--muted);margin-top:2px}
+    .cell-dim {font-size:.78rem;color:var(--muted)}
+    .dash{color:#cbd5e1}
+    .src-tag{display:inline-block;font-size:.64rem;font-weight:700;text-transform:uppercase;
+             letter-spacing:.05em;background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:4px;margin-top:3px}
+    .del-btn{background:none;border:none;color:#cbd5e1;font-size:1rem;cursor:pointer;padding:4px 6px;
+             border-radius:6px;transition:all .12s;line-height:1}
+    .del-btn:hover{color:var(--red);background:var(--red-bg)}
+
+    /* Modal (analysis + add job) */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100;
+             align-items:flex-start;justify-content:center;padding:24px 12px 40px;overflow-y:auto}
+    .overlay.open{display:flex}
+    .modal{background:var(--bg);border-radius:16px;width:100%;max-width:660px;
+           box-shadow:0 20px 60px rgba(0,0,0,.25);animation:slideUp .2s ease}
+    .modal.sm{max-width:440px}
+    @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    .modal-hdr{display:flex;align-items:center;justify-content:space-between;
+               padding:16px 20px;background:var(--surface);border-radius:16px 16px 0 0;border-bottom:1px solid var(--border)}
+    .modal-title{font-size:.88rem;font-weight:700;color:var(--text)}
+    .modal-close{background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted);
+                 line-height:1;padding:2px 6px;border-radius:6px;transition:background .12s}
+    .modal-close:hover{background:var(--border)}
+    .modal-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+    .modal-loading{text-align:center;padding:40px;color:var(--muted);font-size:.9rem}
+
+    /* Add-job form */
+    .fld{display:flex;flex-direction:column;gap:4px}
+    .fld label{font-size:.74rem;font-weight:700;color:var(--text)}
+    .fld input,.fld select,.fld textarea{padding:8px 11px;border:1.5px solid var(--border);border-radius:8px;
+      font-family:inherit;font-size:.88rem;color:var(--text);background:var(--surface);outline:none}
+    .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--accent)}
+    .fld textarea{min-height:60px;resize:vertical}
+    .fld-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media(max-width:480px){.fld-row{grid-template-columns:1fr}}
+    .save-btn{padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+              font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .14s}
+    .save-btn:hover{background:var(--accent-h)}
+
+    /* Verdict card inside analysis modal */
+    .verdict{border-radius:var(--r);border:2px solid;overflow:hidden}
+    .verdict.go{background:var(--go-bg);border-color:var(--go-bd)}
+    .verdict.watch{background:var(--watch-bg);border-color:var(--watch-bd)}
+    .verdict.concern{background:var(--concern-bg);border-color:var(--concern-bd)}
+    .verdict.away{background:var(--away-bg);border-color:var(--away-bd)}
+    .v-top{display:flex;align-items:center;gap:16px;padding:18px 20px 14px}
+    .v-ring-wrap{position:relative;width:72px;height:72px;flex-shrink:0}
+    .v-ring-svg{width:72px;height:72px;transform:rotate(-90deg)}
+    .v-track{stroke:rgba(0,0,0,.1)}
+    .v-ring-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.25rem;font-weight:900}
+    .verdict.go .v-ring-num{color:var(--go)}.verdict.watch .v-ring-num{color:var(--watch)}
+    .verdict.concern .v-ring-num{color:var(--concern)}.verdict.away .v-ring-num{color:var(--away)}
+    .v-score-label{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:3px}
+    .v-tier{font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+    .verdict.go .v-tier{color:var(--go)}.verdict.watch .v-tier{color:var(--watch)}
+    .verdict.concern .v-tier{color:var(--concern)}.verdict.away .v-tier{color:var(--away)}
+    .v-headline{font-size:1.05rem;font-weight:800;line-height:1.3;margin-bottom:5px}
+    .verdict.go .v-headline{color:#134e4a}.verdict.watch .v-headline{color:var(--watch)}
+    .verdict.concern .v-headline{color:var(--concern)}.verdict.away .v-headline{color:var(--away)}
+    .v-rec{font-size:.86rem;line-height:1.65;color:var(--text)}
+    .v-meta{display:flex;align-items:center;gap:8px;padding:10px 20px;border-top:1px solid;flex-wrap:wrap}
+    .verdict.go .v-meta{border-color:var(--go-bd)}.verdict.watch .v-meta{border-color:var(--watch-bd)}
+    .verdict.concern .v-meta{border-color:var(--concern-bd)}.verdict.away .v-meta{border-color:var(--away-bd)}
+    .v-type-pill{font-size:.71rem;font-weight:700;padding:2px 9px;border-radius:20px;border:1.5px solid}
+    .v-type-pill.ok{background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+    .v-type-pill.risk{background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+    .v-type-pill.mid{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber)}
+    .v-type-pill.plain{background:#f1f5f9;border-color:#cbd5e1;color:var(--muted)}
+    .dc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+    .dc-hd{font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:10px}
+    .signal-chips{display:flex;flex-wrap:wrap;gap:5px}
+    .signal-chip{font-size:.75rem;font-weight:600;padding:3px 9px;border-radius:20px;border:1.5px solid;line-height:1.3}
+    .signal-chip.good{background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+    .signal-chip.bad{background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+    .detail-dc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+    .detail-dc + .detail-dc{margin-top:8px}
+    .detail-hd{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+    .detail-icon{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.72rem;flex-shrink:0}
+    .detail-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+    .detail-body{font-size:.83rem;line-height:1.65;color:var(--muted)}
+    .sub-list{list-style:none;margin-top:6px}
+    .sub-list li{font-size:.81rem;line-height:1.5;padding:2px 0;display:flex;gap:6px}
+    .sub-list li::before{flex-shrink:0;margin-top:2px;font-size:.7rem}
+    .sub-list.good li::before{content:"✓";color:var(--green)}
+    .sub-list.bad li::before{content:"◆";color:var(--red)}
+    .sub-list.dot li::before{content:"·";color:var(--muted)}
+    .sub-label{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:8px 0 3px;color:var(--muted)}
+    .mtr-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+    .mtr{flex:1;height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden}
+    .mfill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green),var(--amber),var(--red))}
+    .mlb{font-size:.76rem;font-weight:700;white-space:nowrap}
+    .mlb.Unlikely{color:var(--green)}.mlb.Possible{color:var(--amber)}
+    .mlb.Likely,.mlb.Very-Likely{color:var(--red)}
+
+    .empty{text-align:center;padding:60px 20px;color:var(--muted)}
+    .empty .ico{font-size:2.2rem;margin-bottom:10px}
+    .empty p{font-size:.92rem}
+    .loading{text-align:center;padding:40px;color:var(--muted);font-size:.88rem}
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#0c2340;color:#fff;
+           font-size:.79rem;padding:7px 16px;border-radius:20px;opacity:0;pointer-events:none;transition:opacity .18s;z-index:999}
+    .toast.show{opacity:1}
+    @media(max-width:680px){.hide-sm{display:none}}
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hdr-nav">
+    <a href="/" class="nav-link">🔍 Analyzer</a>
+    <a href="/history" class="nav-link active">📋 Job Tracker</a>
+    <a href="/questions" class="nav-link">✏️ Questions to Ask</a>
+    <a href="/redflags" class="nav-link">🚩 Red Flags</a>
+  </div>
+
+  <div class="hdr">
+    <div class="hdr-left">
+      <h1>Job Tracker</h1>
+    </div>
+    <div class="hdr-right">
+      <span class="count" id="totalCount">Loading…</span>
+      <button class="add-btn" onclick="openAddJob()">+ Add job</button>
+    </div>
+  </div>
+  <p class="page-sub">Your whole pipeline in one place — recruiter contacts Métier vetted, and jobs you found and applied to yourself.</p>
+
+  <!-- Source tabs -->
+  <div class="src-tabs">
+    <button class="srctab active" onclick="setSource('all',this)">All</button>
+    <button class="srctab" onclick="setSource('vetted',this)">🔍 Vetted by Métier</button>
+    <button class="srctab" onclick="setSource('manual',this)">✋ Self-added</button>
+  </div>
+
+  <!-- Status filters -->
+  <div class="filters" id="filters">
+    <button class="fb active" onclick="setFilter('all',this)">All</button>
+  </div>
+
+  <div id="tableWrap"><div class="loading">Loading…</div></div>
+</div>
+
+<!-- Analysis modal -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-hdr">
+      <span class="modal-title" id="modalTitle">Full Analysis</span>
+      <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"><div class="modal-loading">Loading…</div></div>
+  </div>
+</div>
+
+<!-- Add-job modal -->
+<div class="overlay" id="addOverlay" onclick="closeAddJob(event)">
+  <div class="modal sm">
+    <div class="modal-hdr">
+      <span class="modal-title">Add a job you're tracking</span>
+      <button class="modal-close" onclick="closeAddJobDirect()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fld"><label>Job title</label><input type="text" id="ajTitle" placeholder="Senior Software Engineer"/></div>
+      <div class="fld"><label>Company</label><input type="text" id="ajCompany" placeholder="Acme Corp"/></div>
+      <div class="fld-row">
+        <div class="fld"><label>Source</label><input type="text" id="ajSource" placeholder="LinkedIn, Indeed, referral…"/></div>
+        <div class="fld"><label>Status</label>
+          <select id="ajStatus">
+            <option>Interested</option><option>Applied</option><option>Interviewing</option>
+            <option>Offer</option><option>Rejected</option><option>Ghosted</option><option>Scam</option>
+          </select>
+        </div>
+      </div>
+      <div class="fld"><label>Link <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="url" id="ajUrl" placeholder="https://…"/></div>
+      <div class="fld"><label>Notes <span style="font-weight:400;color:var(--muted)">(optional)</span></label><textarea id="ajNotes" placeholder="Anything worth remembering…"></textarea></div>
+      <button class="save-btn" onclick="submitAddJob()">Add to tracker</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let allItems = [], activeFilter = 'all', activeSource = 'all', STATUSES = [];
+
+  function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+
+  async function loadHistory() {
+    try {
+      const res  = await fetch('/api/history?limit=500');
+      const data = await res.json();
+      allItems   = data.items;
+      STATUSES   = data.statuses || ["Interested","Applied","Interviewing","Offer","Rejected","Ghosted"];
+      document.getElementById('totalCount').textContent = data.total + (data.total===1?' entry':' entries');
+      buildFilters();
+      renderTable();
+    } catch {
+      document.getElementById('tableWrap').innerHTML =
+        '<div class="empty"><div class="ico">⚠️</div><p>Failed to load — is the server running?</p></div>';
+    }
+  }
+
+  function buildFilters() {
+    const f = document.getElementById('filters');
+    f.innerHTML = `<button class="fb active" onclick="setFilter('all',this)">All</button>`;
+    STATUSES.forEach(s => {
+      const n = allItems.filter(i => i.status === s).length;
+      f.innerHTML += `<button class="fb" onclick="setFilter('${s}',this)">${s}${n?` (${n})`:''}</button>`;
+    });
+  }
+
+  function setFilter(f, btn) {
+    activeFilter = f;
+    document.querySelectorAll('.fb').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTable();
+  }
+
+  function setSource(s, btn) {
+    activeSource = s;
+    document.querySelectorAll('.srctab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTable();
+  }
+
+  // Legitimacy score (high = legit). Color + number both come from this — never disagree.
+  function legitTier(legit){return legit>=75?'go':legit>=50?'watch':legit>=25?'concern':'away';}
+
+  function renderTable() {
+    const wrap = document.getElementById('tableWrap');
+    let items = allItems;
+    if (activeSource === 'vetted') items = items.filter(i => i.entry_type !== 'manual');
+    else if (activeSource === 'manual') items = items.filter(i => i.entry_type === 'manual');
+    if (activeFilter !== 'all') items = items.filter(i => i.status === activeFilter);
+    if (!items.length) {
+      const msg = activeSource==='manual'
+        ? 'No self-added jobs yet. Hit “+ Add job” to track a role you applied to.'
+        : activeSource==='vetted'
+        ? 'No vetted contacts yet. Analyze a recruiter message to add one.'
+        : 'Nothing here yet. Analyze a recruiter message or add a job you\'re tracking.';
+      wrap.innerHTML = `<div class="empty"><div class="ico">📭</div><p>${msg}</p></div>`;
+      return;
+    }
+
+    let html = `<table class="tbl"><thead><tr>
+        <th style="width:118px">Status</th>
+        <th>Job</th>
+        <th class="hide-sm">Company</th>
+        <th class="hide-sm">Source</th>
+        <th style="width:60px;text-align:center" title="Legitimacy score — higher is safer (green = go, red = scam)">Legit</th>
+        <th class="hide-sm">Date</th>
+        <th style="width:30px"></th>
+      </tr></thead><tbody>`;
+
+    items.forEach(item => {
+      const date = new Date(item.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      const opts = STATUSES.map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('');
+
+      // Legit badge: vetted → clickable score; manual → dash
+      let badge;
+      if (item.entry_type==='manual' || item.score===null) {
+        badge = `<div class="sbadge-wrap" style="cursor:default"><div class="sbadge none">–</div></div>`;
+      } else {
+        const legit = 100 - item.score;             // high = legit
+        const t = legitTier(legit);                 // colour from the SAME number
+        badge = `<div class="sbadge-wrap" onclick="openModal(${item.id})" title="Full analysis">
+                   <div class="sbadge ${t}">${legit}</div></div>`;
+      }
+
+      const jobTitle = item.job_title || '<span class="dash">Untitled role</span>';
+      const recOrSrc = item.recruiter_name
+        ? `<div class="cell-sub">via ${item.recruiter_name}</div>`
+        : '';
+      const source = item.source || item.recruiter_company || (item.channel||'');
+
+      html += `
+        <tr class="trow">
+          <td><select class="status-sel st-${item.status}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
+          <td><div class="cell-main">${jobTitle}</div>${recOrSrc}</td>
+          <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
+          <td class="hide-sm">${source?`<span class="src-tag">${source}</span>`:'<span class="dash">—</span>'}</td>
+          <td style="text-align:center">${badge}</td>
+          <td class="hide-sm"><div class="cell-dim" style="white-space:nowrap">${date}</div></td>
+          <td><button class="del-btn" onclick="delEntry(${item.id})" title="Delete">✕</button></td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+
+  async function changeStatus(id, status, sel) {
+    sel.className = 'status-sel st-' + status;
+    const item = allItems.find(i=>i.id===id); if(item) item.status = status;
+    try {
+      await fetch('/api/status',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id,status})});
+      buildFilters();
+    } catch { showToast('Failed to save status'); }
+  }
+
+  async function delEntry(id) {
+    if (!confirm('Remove this from your tracker?')) return;
+    try {
+      await fetch('/api/entry/'+id,{method:'DELETE'});
+      allItems = allItems.filter(i=>i.id!==id);
+      document.getElementById('totalCount').textContent = allItems.length + (allItems.length===1?' entry':' entries');
+      buildFilters(); renderTable();
+      showToast('Removed');
+    } catch { showToast('Failed to delete'); }
+  }
+
+  // ── Add job ───────────────────────────────────────────────────────────────────
+  function openAddJob(){document.getElementById('addOverlay').classList.add('open');document.body.style.overflow='hidden';}
+  function closeAddJobDirect(){document.getElementById('addOverlay').classList.remove('open');document.body.style.overflow='';}
+  function closeAddJob(e){if(e.target===document.getElementById('addOverlay'))closeAddJobDirect();}
+
+  async function submitAddJob() {
+    const payload = {
+      title:   document.getElementById('ajTitle').value.trim(),
+      company: document.getElementById('ajCompany').value.trim(),
+      source:  document.getElementById('ajSource').value.trim(),
+      url:     document.getElementById('ajUrl').value.trim(),
+      status:  document.getElementById('ajStatus').value,
+      notes:   document.getElementById('ajNotes').value.trim(),
+    };
+    if (!payload.title && !payload.company) { showToast('Add a title or company'); return; }
+    try {
+      const res = await fetch('/api/application',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d = await res.json();
+      if (!res.ok) { showToast(d.error||'Failed'); return; }
+      ['ajTitle','ajCompany','ajSource','ajUrl','ajNotes'].forEach(id=>document.getElementById(id).value='');
+      closeAddJobDirect();
+      showToast('Added to tracker');
+      loadHistory();
+    } catch { showToast('Network error'); }
+  }
+
+  // ── Analysis modal ────────────────────────────────────────────────────────────
+  async function openModal(id) {
+    const overlay=document.getElementById('overlay'),body=document.getElementById('modalBody'),title=document.getElementById('modalTitle');
+    body.innerHTML='<div class="modal-loading">Loading full analysis…</div>';
+    title.textContent='Full Analysis';
+    overlay.classList.add('open');document.body.style.overflow='hidden';
+    try {
+      const res=await fetch(`/api/analysis/${id}`);const d=await res.json();
+      if(!res.ok){body.innerHTML=`<div class="modal-loading">Error: ${d.error}</div>`;return;}
+      renderModal(d);
+      const item=allItems.find(i=>i.id===id);
+      if(item){const date=new Date(item.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        title.textContent=(item.recruiter_name||item.job_title||'Analysis')+` · ${date}`;}
+    } catch { body.innerHTML='<div class="modal-loading">Failed to load.</div>'; }
+  }
+  function closeModalDirect(){document.getElementById('overlay').classList.remove('open');document.body.style.overflow='';}
+  function closeModal(e){if(e.target===document.getElementById('overlay'))closeModalDirect();}
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModalDirect();closeAddJobDirect();}});
+
+  function renderModal(d) {
+    const score=d.scam_likelihood_score||0,label=d.scam_likelihood_label||'';
+    const legit=100-score;   // display legitimacy: high = legit, low = scam
+    let t=legitTier(legit);  // colour from the displayed number
+    const tierColors={go:'#0f766e',watch:'#d97706',concern:'#ea580c',away:'#dc2626'};
+    const tierLabels={go:'Proceed with confidence',watch:'Verify before you engage',concern:'Significant concerns',away:'Not worth your time'};
+    const headlines={go:'This looks like a real opportunity.',watch:'A few things to check first.',concern:"Know what you're walking into.",away:'Walk away — your time is too valuable for this.'};
+    const subs={Low:'Signals look legitimate.',Medium:'Worth a quick check before you respond.',High:'Real issues here.','Very High':'Your energy is worth more than this.'};
+    const sc=d.scam_classification||{};
+    const icons={legitimate:'✓',ghost_job:'👻',data_harvesting:'🪪',pay_to_play:'💰',advance_fee:'💸',impersonation:'🎭'};
+    const pillCls=sc.primary_type==='legitimate'?'ok':['data_harvesting','advance_fee','impersonation'].includes(sc.primary_type)?'risk':sc.primary_type==='ghost_job'?'mid':'plain';
+    const pillHtml=sc.primary_type&&sc.primary_type!=='unknown'?`<span class="v-type-pill ${pillCls}">${icons[sc.primary_type]||'⚠'} ${sc.type_label||''}</span>`:'';
+    const good=d.legitimate_signals||[],bad=d.red_flags||[];
+    const goodChips=good.map(t=>`<span class="signal-chip good" title="${t}">${t}</span>`).join('');
+    const badChips=bad.map(t=>`<span class="signal-chip bad" title="${t}">${t}</span>`).join('');
+    const ci=d.company_intel||{},p2p=d.pay_to_play||{},wp=d.web_presence||{},ids=d.identifiers||{};
+    const mkList=(items,cls)=>items&&items.length?`<ul class="sub-list ${cls}">${items.map(i=>`<li>${i}</li>`).join('')}</ul>`:'<span style="font-size:.78rem;color:var(--muted);font-style:italic">None noted.</span>';
+
+    document.getElementById('modalBody').innerHTML=`
+      <div class="verdict ${t}">
+        <div class="v-top">
+          <div class="v-ring-wrap"><svg class="v-ring-svg" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke-width="2.8" class="v-track"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-dasharray="${legit} ${100-legit}" stroke="${tierColors[t]}"/>
+          </svg><div class="v-ring-num">${legit}</div></div>
+          <div style="flex:1">
+            <div class="v-score-label">Legitimacy Score</div>
+            <div class="v-tier">${tierLabels[t]||''}</div>
+            <div class="v-headline">${headlines[t]||''}</div>
+            <div class="v-rec">${d.recommendation||''}</div>
+          </div>
+        </div>
+        <div class="v-meta"><span style="font-size:.78rem;color:var(--muted)">${subs[label]||''}</span>${pillHtml}</div>
+      </div>
+      ${(good.length||bad.length)?`<div class="dc"><div class="dc-hd">${good.length} green · ${bad.length} red</div>
+        ${good.length?`<div class="signal-chips" style="margin-bottom:${bad.length?'7px':'0'}">${goodChips}</div>`:''}
+        ${bad.length?`<div class="signal-chips">${badChips}</div>`:''}</div>`:''}
+      ${ci.likely_identity?`<div class="detail-dc"><div class="detail-hd"><div class="detail-icon" style="background:#1d4ed8">🏢</div><div class="detail-title" style="color:#1d4ed8">Company Intelligence</div></div>
+        ${ci.named_company?`<div style="font-size:.74rem;color:var(--muted);margin-bottom:4px">Stated: ${ci.named_company}</div>`:''}
+        <div class="detail-body" style="font-weight:500;color:var(--text);margin-bottom:7px">${ci.likely_identity}</div>
+        <div class="sub-label">Clues</div>${mkList(ci.clues,'dot')}
+        ${(ci.identity_concerns||[]).length?`<div class="sub-label">Identity concerns</div>${mkList(ci.identity_concerns,'bad')}`:''}</div>`:''}
+      <div class="detail-dc"><div class="detail-hd"><div class="detail-icon" style="background:#92400e">💰</div><div class="detail-title" style="color:#92400e">Upfront Payment Risk</div></div>
+        <div class="mtr-row"><div class="mtr"><div class="mfill" style="width:${p2p.score||0}%"></div></div>
+        <span class="mlb ${(p2p.label||'').replace(' ','-')}">${p2p.label||'Unknown'} (${p2p.score||0}/100)</span></div>
+        ${(p2p.signals||[]).length?`<div class="sub-label">Signals</div>${mkList(p2p.signals,'bad')}`:''}</div>
+      ${wp.summary?`<div class="detail-dc"><div class="detail-hd"><div class="detail-icon" style="background:#475569">🌐</div><div class="detail-title" style="color:#475569">Web Presence</div></div>
+        <div class="detail-body" style="margin-bottom:8px">${wp.summary}</div>
+        ${(wp.legitimate_findings||[]).length?`<div class="sub-label">Legitimate</div>${mkList(wp.legitimate_findings,'good')}`:''}
+        ${(wp.red_flags||[]).length?`<div class="sub-label">Concerns</div>${mkList(wp.red_flags,'bad')}`:''}</div>`:''}
+      ${d.reasoning?`<div class="detail-dc"><div class="detail-hd"><div class="detail-icon" style="background:#374151">💭</div><div class="detail-title" style="color:#374151">Full Reasoning</div></div>
+        <div class="detail-body" style="line-height:1.75">${d.reasoning}</div></div>`:''}`;
+  }
+
+  loadHistory();
+</script>
+</body>
+</html>

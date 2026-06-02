@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/assets/metier-icon-small.svg" />
+  <title>Metier — Find your calling, screen out the noise</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#eef0f2;--surface:#fff;--border:#cdd1d4;--text:#0c2340;--muted:#6b7682;
+      --accent:#0c2340;--accent-h:#081a30;--accent-bg:#eef1f4;--accent-bd:#c4c6c8;
+      --go:#0f766e;--go-bg:#f0fdfa;--go-bd:#5eead4;
+      --watch:#92400e;--watch-bg:#fffbeb;--watch-bd:#fbbf24;
+      --concern:#b45309;--concern-bg:#fff7ed;--concern-bd:#fed7aa;
+      --away:#991b1b;--away-bg:#fff1f2;--away-bd:#fecdd3;
+      --green:#059669;--green-bg:#f0fdf4;--green-bd:#a7f3d0;
+      --red:#dc2626;--red-bg:#fef2f2;--red-bd:#fecaca;
+      --amber:#d97706;--amber-bg:#fffbeb;--amber-bd:#fde68a;
+      --r:12px;--sh:0 2px 8px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04)
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg);color:var(--text);min-height:100vh;
+         padding:28px 16px 80px;line-height:1.65}
+    .page{max-width:660px;margin:0 auto}
+
+    /* ── Header ── */
+    .hdr{text-align:center;margin-bottom:28px}
+    .logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:6px}
+    .logo-icon{width:38px;height:38px;background:var(--accent);border-radius:10px;
+               display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+               box-shadow:0 2px 8px rgba(12,35,64,.35)}
+    .logo-name{font-size:1.65rem;font-weight:800;letter-spacing:-.5px}
+    .logo-name span{color:var(--accent)}
+    .hdr-sub{color:var(--muted);font-size:.85rem;margin-bottom:10px}
+    .hdr-nav{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+    .nav-link{font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;
+              padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .14s;
+              background:none;border:none;font-family:inherit}
+    .nav-link:hover{color:var(--accent);background:var(--accent-bg)}
+    .nav-link.active{color:var(--accent);background:var(--accent-bg);font-weight:700}
+
+    /* ── Input card ── */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+          box-shadow:var(--sh);overflow:hidden;margin-bottom:16px}
+    .card-inner{padding:20px 22px}
+    .flabel{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;
+            color:var(--muted);display:block;margin-bottom:8px}
+    .pills{display:flex;gap:7px;flex-wrap:wrap}
+    .pill{padding:5px 14px;border:1.5px solid var(--border);background:var(--surface);
+          border-radius:20px;font-size:.82rem;font-weight:500;cursor:pointer;
+          transition:all .14s;color:var(--muted);user-select:none}
+    .pill:hover{border-color:var(--accent);color:var(--accent)}
+    .pill.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);font-weight:700}
+    .email-row{margin:14px 0 0}
+    .opt{display:none}
+    .opt.on{display:block}
+    .fl{display:block;font-weight:600;font-size:.83rem;margin-bottom:5px}
+    .fl .op{font-size:.69rem;background:#f1f5f9;color:var(--muted);padding:1px 5px;border-radius:3px;margin-left:4px}
+    .fl .ht{display:block;font-weight:400;font-size:.72rem;color:var(--muted);margin-top:1px}
+    input[type=text],input[type=url],input[type=tel]{width:100%;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;
+      font-family:inherit;font-size:.88rem;color:var(--text);background:#fafbfc;transition:border-color .14s}
+    input:focus{outline:none;border-color:var(--accent);background:#fff}
+    input::placeholder{color:#94a3b8}
+    textarea{width:100%;min-height:160px;padding:12px;border:1.5px solid var(--border);
+             border-radius:7px;font-family:inherit;font-size:.9rem;color:var(--text);
+             resize:vertical;transition:border-color .14s;background:#fafbfc;line-height:1.6;margin-top:14px}
+    textarea:focus{outline:none;border-color:var(--accent);background:#fff}
+    textarea::placeholder{color:#94a3b8}
+    .ff{display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:10px}
+    .cc{font-size:.74rem;color:var(--muted)}
+    .abtn{padding:10px 26px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+          font-size:.92rem;font-weight:700;cursor:pointer;transition:background .14s;
+          display:flex;align-items:center;gap:8px;font-family:inherit}
+    .abtn:hover:not(:disabled){background:var(--accent-h)}
+    .abtn:disabled{opacity:.55;cursor:not-allowed}
+    .spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+          border-radius:50%;animation:spin .7s linear infinite;display:none}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .tip{font-size:.71rem;color:var(--muted)}
+    .err{display:none;background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);
+         border-radius:7px;padding:9px 13px;font-size:.85rem;margin-top:11px}
+
+    /* ── Results ── */
+    #res{display:none}
+
+    /* Keyword alert */
+    .kw-alert{background:#fff;border:1.5px solid var(--red-bd);border-radius:var(--r);
+              padding:11px 16px;margin-bottom:12px}
+    .kw-alert-hd{font-size:.79rem;font-weight:700;color:var(--red);margin-bottom:7px}
+    .kw-pills{display:flex;flex-wrap:wrap;gap:5px}
+    .kw-pill{font-size:.71rem;font-weight:600;padding:2px 9px;border-radius:20px;border:1.5px solid}
+    .kw-pill.fee{background:#fffbeb;border-color:#fde68a;color:#92400e}
+    .kw-pill.pii{background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+    .kw-pill.urgency{background:#fffbeb;border-color:#fbbf24;color:#92400e}
+    .kw-pill.off_channel{background:var(--concern-bg);border-color:var(--concern-bd);color:var(--concern)}
+
+    /* Cross-reference */
+    .xref{background:#fff;border:1.5px solid #e9d5ff;border-radius:var(--r);
+          padding:13px 17px;margin-bottom:12px}
+    .xref-t{font-size:.83rem;font-weight:700;color:#7c3aed;margin-bottom:4px}
+    .xi{background:#faf5ff;border:1px solid #e9d5ff;border-radius:7px;padding:9px 12px;margin-top:7px;font-size:.81rem}
+    .xs{display:inline-flex;font-weight:700;padding:2px 7px;border-radius:20px;font-size:.71rem;margin-bottom:3px}
+    .xs.Low{background:var(--green-bg);color:var(--green)}
+    .xs.Medium{background:var(--amber-bg);color:var(--amber)}
+    .xs.High,.xs.Very-High{background:var(--red-bg);color:var(--red)}
+    .xd code{background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:.78em}
+    .xdate{color:var(--muted);font-size:.71rem;margin-top:2px}
+
+    /* ── Verdict (scam score) card ── */
+    .verdict{border-radius:var(--r);border:2px solid;box-shadow:var(--sh);overflow:hidden;margin-bottom:12px}
+    .verdict.go     {background:var(--go-bg);    border-color:var(--go-bd)}
+    .verdict.watch  {background:var(--watch-bg); border-color:var(--watch-bd)}
+    .verdict.concern{background:var(--concern-bg);border-color:var(--concern-bd)}
+    .verdict.away   {background:var(--away-bg);  border-color:var(--away-bd)}
+    .v-top{display:flex;align-items:center;gap:20px;padding:24px 26px 20px}
+    .v-ring-wrap{position:relative;width:90px;height:90px;flex-shrink:0}
+    .v-ring-svg{width:90px;height:90px;transform:rotate(-90deg)}
+    .v-track{stroke:rgba(0,0,0,.1)}
+    .v-ring-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                font-size:1.55rem;font-weight:900;line-height:1}
+    .verdict.go     .v-ring-num{color:var(--go)}
+    .verdict.watch  .v-ring-num{color:var(--watch)}
+    .verdict.concern .v-ring-num{color:var(--concern)}
+    .verdict.away   .v-ring-num{color:var(--away)}
+    .v-body{flex:1}
+    .v-score-label{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;
+                   color:var(--muted);margin-bottom:6px}
+    .v-tier{font-size:1.2rem;font-weight:800;line-height:1.25;letter-spacing:-.01em}
+    .verdict.go      .v-tier{color:var(--go)}
+    .verdict.watch   .v-tier{color:var(--watch)}
+    .verdict.concern .v-tier{color:var(--concern)}
+    .verdict.away    .v-tier{color:var(--away)}
+    /* Alert pills row — keyword flags + xref + type, shown only when present */
+    .v-alerts{display:none;flex-wrap:wrap;gap:5px;padding:0 26px 16px}
+    .v-alert-pill{font-size:.71rem;font-weight:600;padding:3px 10px;border-radius:20px;border:1.5px solid}
+    .v-alert-pill.kw-fee    {background:#fffbeb;border-color:#fde68a;color:#92400e}
+    .v-alert-pill.kw-pii    {background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+    .v-alert-pill.kw-urgency{background:#fffbeb;border-color:#fbbf24;color:#92400e}
+    .v-alert-pill.kw-off    {background:var(--concern-bg);border-color:var(--concern-bd);color:var(--concern)}
+    .v-alert-pill.xref      {background:#faf5ff;border-color:#e9d5ff;color:#7c3aed}
+    .v-alert-pill.ok        {background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+    .v-alert-pill.risk      {background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+    .v-alert-pill.mid       {background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber)}
+    .v-alert-pill.plain     {background:#f1f5f9;border-color:#cbd5e1;color:var(--muted)}
+
+    /* ── Proceed-with-caution card ── */
+    .caution{background:var(--watch-bg);border:1.5px solid var(--watch-bd);border-radius:var(--r);
+             padding:14px 18px;margin-bottom:12px;box-shadow:var(--sh)}
+    .caution-hd{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+    .caution-icon{font-size:1.1rem;line-height:1.2;flex-shrink:0}
+    .caution-title{font-size:.9rem;font-weight:800;color:var(--watch)}
+    .caution-sub{font-size:.75rem;color:var(--muted);margin-top:1px}
+    .caution-list{list-style:none;display:flex;flex-direction:column;gap:8px}
+    .caution-list li{display:flex;gap:8px;font-size:.84rem;line-height:1.5;color:var(--text)}
+    .caution-list li::before{content:"→";color:var(--watch);font-weight:800;flex-shrink:0}
+    .caution-list b{font-weight:700}
+
+    /* ── Full details accordion ── */
+    .detail-toggle{width:100%;padding:12px 20px;background:var(--surface);border:1px solid var(--border);
+                   border-radius:var(--r);display:flex;align-items:center;justify-content:space-between;
+                   cursor:pointer;font-family:inherit;font-size:.84rem;font-weight:600;color:var(--accent);
+                   transition:background .13s;margin-bottom:12px;box-shadow:var(--sh)}
+    .detail-toggle:hover{background:#f8fafc}
+    .detail-body{display:none;margin-bottom:12px}
+    .detail-body.open{display:block}
+
+    /* Signal chips */
+    .signal-chips{display:flex;flex-wrap:wrap;gap:5px;padding:2px 0}
+    .signal-chip{font-size:.76rem;font-weight:600;padding:4px 10px;border-radius:20px;
+                 border:1.5px solid;cursor:default;line-height:1.3}
+    .signal-chip.good{background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+    .signal-chip.bad {background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+    .reasons{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+             padding:16px 20px;margin-bottom:10px;box-shadow:var(--sh)}
+    .reasons-hd{font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;
+                color:var(--muted);margin-bottom:10px}
+
+    /* Questions */
+    .lev-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+              overflow:hidden;margin-bottom:10px;box-shadow:var(--sh)}
+    .lev-hd{padding:13px 18px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--border)}
+    .lev-icon{width:26px;height:26px;background:var(--go);border-radius:7px;
+              display:flex;align-items:center;justify-content:center;font-size:.78rem;flex-shrink:0}
+    .lev-title{font-size:.82rem;font-weight:800;color:var(--go)}
+    .lev-sub{font-size:.72rem;color:var(--muted);margin-top:1px}
+    .lev-item{display:flex;align-items:flex-start;gap:9px;padding:10px 18px;
+              cursor:pointer;transition:background .12s;border-bottom:1px solid var(--border)}
+    .lev-item:last-child{border-bottom:none}
+    .lev-item:hover{background:var(--go-bg)}
+    .lev-n{font-size:.68rem;font-weight:800;color:var(--go);background:var(--go-bg);
+           border:1px solid var(--go-bd);border-radius:50%;width:18px;height:18px;
+           min-width:18px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+    .lev-q{font-size:.85rem;flex:1;line-height:1.55}
+    .lev-hint{font-size:.65rem;color:var(--muted);opacity:0;transition:opacity .13s;white-space:nowrap;margin-top:3px;align-self:flex-start}
+    .lev-item:hover .lev-hint{opacity:1}
+
+    /* Detail inner cards */
+    .dc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+        padding:15px 18px;margin-bottom:10px;box-shadow:var(--sh)}
+    .dc-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+    .dc-icon{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0}
+    .dc-title{font-size:.77rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+    .dc-body{font-size:.84rem;line-height:1.6;color:var(--muted)}
+    .mtr-row{display:flex;align-items:center;gap:12px;margin-bottom:9px}
+    .mtr{flex:1;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden}
+    .mfill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));transition:width .7s}
+    .mlb{font-size:.77rem;font-weight:700;white-space:nowrap}
+    .mlb.Unlikely{color:var(--green)}.mlb.Possible{color:var(--amber)}
+    .mlb.Likely,.mlb.Very-Likely{color:var(--red)}
+    .sub-list{list-style:none;margin-top:7px}
+    .sub-list li{font-size:.82rem;line-height:1.5;padding:2px 0;display:flex;gap:7px}
+    .sub-list li::before{flex-shrink:0;margin-top:2px;font-size:.7rem}
+    .sub-list.good li::before{content:"✓";color:var(--green)}
+    .sub-list.bad  li::before{content:"◆";color:var(--red)}
+    .sub-list.dot  li::before{content:"·";color:var(--muted)}
+    .sub-label{font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin:8px 0 4px;color:var(--muted)}
+    .pv{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+    .pbadge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:20px;font-size:.76rem;font-weight:700;border:1.5px solid}
+    .pbadge.ai   {background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
+    .pbadge.stock{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber)}
+    .pbadge.real {background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+    .pbadge.none {background:#f1f5f9;border-color:#cbd5e1;color:var(--muted)}
+    .iconf{display:inline-flex;font-size:.69rem;font-weight:700;text-transform:uppercase;
+           letter-spacing:.06em;padding:2px 8px;border-radius:20px;margin-bottom:10px}
+    .iconf.Low   {background:var(--amber-bg);color:var(--amber)}
+    .iconf.Medium{background:var(--accent-bg);color:var(--accent)}
+    .iconf.High  {background:var(--green-bg);color:var(--green)}
+    .wb{display:inline-flex;align-items:center;font-size:.67rem;font-weight:600;
+        padding:1px 7px;border-radius:20px;background:#e2e8f0;color:#475569;margin-left:7px}
+
+    /* Footer */
+    .tf{text-align:center;font-size:.7rem;color:#94a3b8;margin:4px 0 6px}
+    .rrow{text-align:center;margin-top:18px}
+    .rbtn{background:none;border:1.5px solid var(--border);color:var(--muted);
+          border-radius:7px;padding:8px 18px;font-size:.82rem;cursor:pointer;
+          font-weight:600;transition:border-color .14s,color .14s;font-family:inherit}
+    .rbtn:hover{border-color:var(--accent);color:var(--accent)}
+    .none-txt{font-size:.81rem;color:var(--muted);font-style:italic}
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+           background:#0c2340;color:#fff;font-size:.79rem;padding:7px 16px;
+           border-radius:20px;opacity:0;pointer-events:none;transition:opacity .18s;z-index:999}
+    .toast.show{opacity:1}
+
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header class="hdr">
+    <div class="logo">
+      <div class="logo-icon">🔍</div>
+      <div class="logo-name">Me<span>tier</span></div>
+    </div>
+    <div class="hdr-sub">Find your calling. Screen out the noise.</div>
+    <div class="hdr-nav">
+      <a href="/" class="nav-link active">🔍 Analyzer</a>
+      <a href="/history" class="nav-link">📋 Job Tracker</a>
+      <a href="/questions" class="nav-link">✏️ Questions to Ask</a>
+      <a href="/redflags" class="nav-link">🚩 Red Flags</a>
+    </div>
+  </header>
+
+  <!-- Input -->
+  <div class="card">
+    <div class="card-inner">
+      <div style="margin-bottom:14px">
+        <span class="flabel">Source of recruiter contact</span>
+        <div class="pills">
+          <span class="pill" data-ch="email"    onclick="setCh(this)">📧 Email</span>
+          <span class="pill" data-ch="linkedin" onclick="setCh(this)">💼 LinkedIn</span>
+          <span class="pill" data-ch="sms"      onclick="setCh(this)">💬 SMS / Text</span>
+          <span class="pill" data-ch="other"    onclick="setCh(this)">⋯ Other</span>
+        </div>
+      </div>
+
+      <!-- Email: one or more addresses -->
+      <div class="opt" id="fieldEmail" style="margin-bottom:12px">
+        <label class="fl" for="sEmail">
+          Email address(es) <span class="op">optional</span>
+          <span class="ht">From field, signature, anywhere — separate with a comma</span>
+        </label>
+        <input type="text" id="sEmail" placeholder="recruiter@company.com, other@domain.com"/>
+      </div>
+
+      <!-- LinkedIn: profile URL -->
+      <div class="opt" id="fieldLinkedIn" style="margin-bottom:12px">
+        <label class="fl" for="linkedinUrl">
+          Their LinkedIn profile URL <span class="op">optional</span>
+        </label>
+        <input type="url" id="linkedinUrl" placeholder="https://linkedin.com/in/their-name"/>
+      </div>
+
+      <!-- SMS: phone number -->
+      <div class="opt" id="fieldSMS" style="margin-bottom:12px">
+        <label class="fl" for="phoneNum">
+          Their phone number <span class="op">optional</span>
+        </label>
+        <input type="tel" id="phoneNum" placeholder="+1 (555) 000-0000"/>
+      </div>
+
+      <!-- Other: free-form source name -->
+      <div class="opt" id="fieldOther" style="margin-bottom:12px">
+        <label class="fl" for="otherSource">
+          Platform <span class="op">optional</span>
+          <span class="ht">e.g. Glassdoor, Indeed, ZipRecruiter, Discord</span>
+        </label>
+        <input type="text" id="otherSource" placeholder="Glassdoor, Indeed, ZipRecruiter…"/>
+      </div>
+      <textarea id="msg" placeholder="Paste the full recruiter message here."></textarea>
+      <div class="ff">
+        <span class="cc" id="cc">0 chars</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+          <button class="abtn" id="abtn" onclick="runAnalysis()">
+            <span class="spin" id="spin"></span>
+            <span id="btnTxt">Get the read</span>
+          </button>
+          <span class="tip">⌘+Enter</span>
+        </div>
+      </div>
+      <div class="err" id="err"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="res">
+
+    <!-- Scam Score card — the only thing you see by default -->
+    <div class="verdict" id="verdictCard">
+      <div class="v-top">
+        <div class="v-ring-wrap">
+          <svg class="v-ring-svg" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke-width="2.8" class="v-track"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke-width="2.8"
+                    stroke-linecap="round" stroke-dasharray="0 100" id="vRingFill"/>
+          </svg>
+          <div class="v-ring-num" id="vRingNum">–</div>
+        </div>
+        <div class="v-body">
+          <div class="v-score-label">Legitimacy Score</div>
+          <div class="v-tier" id="vLabel"></div>
+        </div>
+      </div>
+      <!-- Alert pills: keyword flags + xref + type — only shown when present -->
+      <div class="v-alerts" id="vAlerts"></div>
+    </div>
+
+    <!-- Proceed-with-caution: manual checks Métier can't do (shown only for uncertain tiers) -->
+    <div class="caution" id="cautionCard" style="display:none">
+      <div class="caution-hd">
+        <span class="caution-icon">🔎</span>
+        <div>
+          <div class="caution-title">Not sure? Verify these yourself</div>
+          <div class="caution-sub">A few things Métier can't see from here — 2 minutes each.</div>
+        </div>
+      </div>
+      <ul class="caution-list" id="cautionList"></ul>
+    </div>
+
+    <!-- Full details toggle -->
+    <button class="detail-toggle" onclick="toggleDetail()" id="detailToggle">
+      <span id="detailToggleTxt">▼ &nbsp;Full details</span>
+      <span style="font-size:.75rem" id="detailToggleSub">Why · What to do</span>
+    </button>
+
+    <div class="detail-body" id="detailBody">
+
+      <!-- Recommendation (what to do) -->
+      <div class="dc" id="recCard">
+        <div class="dc-hd">
+          <div class="dc-icon" style="background:var(--accent)">💬</div>
+          <div class="dc-title" style="color:var(--accent)">What to do</div>
+        </div>
+        <div class="dc-body" id="recText" style="color:var(--text);font-size:.9rem;line-height:1.7"></div>
+      </div>
+
+      <!-- Signal chips -->
+      <div class="reasons">
+        <div class="reasons-hd" id="reasonsHd">Signals</div>
+        <div id="reasonsList"></div>
+      </div>
+
+      <!-- Cross-reference (detail) -->
+      <div id="xrefDetail" style="display:none">
+        <div class="dc" style="border-color:#e9d5ff">
+          <div class="dc-hd">
+            <div class="dc-icon" style="background:#7c3aed">🔗</div>
+            <div class="dc-title" style="color:#7c3aed">Seen before</div>
+          </div>
+          <div id="xlist"></div>
+        </div>
+      </div>
+
+      <!-- Questions to send -->
+      <div class="lev-card">
+        <div class="lev-hd">
+          <div class="lev-icon">💬</div>
+          <div>
+            <div class="lev-title">Questions to send them</div>
+            <div class="lev-sub">Tailored to this message. Click any to copy.</div>
+          </div>
+        </div>
+        <div id="levList"></div>
+      </div>
+
+      <!-- Company intel -->
+      <div class="dc">
+        <div class="dc-hd">
+          <div class="dc-icon" style="background:#1d4ed8">🏢</div>
+          <div class="dc-title" style="color:#1d4ed8">Company intelligence</div>
+        </div>
+        <div style="font-size:.74rem;color:var(--muted);margin-bottom:5px" id="inamed"></div>
+        <div style="font-size:.87rem;font-weight:500;line-height:1.65;margin-bottom:8px" id="ilikely"></div>
+        <span class="iconf" id="iconf"></span>
+        <div class="sub-label">Clues from this message</div>
+        <ul class="sub-list dot" id="iclues"></ul>
+        <div id="iconcwrap" style="display:none">
+          <div class="sub-label">Identity concerns</div>
+          <ul class="sub-list bad" id="iconc"></ul>
+        </div>
+      </div>
+
+      <!-- Payment risk -->
+      <div class="dc">
+        <div class="dc-hd">
+          <div class="dc-icon" style="background:#92400e">💰</div>
+          <div class="dc-title" style="color:#92400e">Upfront payment risk</div>
+        </div>
+        <div class="mtr-row">
+          <div class="mtr"><div class="mfill" id="p2pm" style="width:0%"></div></div>
+          <span class="mlb" id="p2ml"></span>
+        </div>
+        <div id="p2sw" style="display:none">
+          <div class="sub-label">Signals</div>
+          <ul class="sub-list bad" id="p2si"></ul>
+        </div>
+        <div id="p2tw" style="display:none">
+          <div class="sub-label">Likely asks to watch for</div>
+          <ul class="sub-list dot" id="p2ta"></ul>
+        </div>
+      </div>
+
+      <!-- Web presence -->
+      <div class="dc">
+        <div class="dc-hd">
+          <div class="dc-icon" style="background:#475569">🌐</div>
+          <div class="dc-title" style="color:#475569">Web presence <span class="wb" id="wbadge" style="display:none">Live research</span></div>
+        </div>
+        <div class="dc-body" id="wsum" style="margin-bottom:10px"></div>
+        <div class="sub-label">Legitimate findings</div>
+        <ul class="sub-list good" id="wleg"></ul>
+        <div class="sub-label" style="margin-top:10px">Online concerns</div>
+        <ul class="sub-list bad" id="wflg"></ul>
+      </div>
+
+      <!-- Reasoning -->
+      <div class="dc">
+        <div class="dc-hd">
+          <div class="dc-icon" style="background:#374151">💭</div>
+          <div class="dc-title" style="color:#374151">Full reasoning</div>
+        </div>
+        <div class="dc-body" id="rsn" style="font-size:.84rem;line-height:1.75"></div>
+      </div>
+
+    </div><!-- detail-body -->
+
+    <div class="tf" id="tf"></div>
+    <div class="rrow"><button class="rbtn" onclick="resetForm()">← Analyze another message</button></div>
+  </div><!-- #res -->
+
+</div><!-- .page -->
+
+<div class="toast" id="toast">Copied ✓</div>
+
+<script>
+  // ── Clipboard helper — works on http:// (Pi local network) and https:// ────────
+  function copyToClipboard(text, toast) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => showToast(toast||'Copied ✓'));
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand('copy'); showToast(toast||'Copied ✓'); }
+      catch(e) { showToast('Copy failed — select text manually'); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  function copyQ(text) { copyToClipboard(text); }
+
+  // ── Manual verification list — things Métier can't scrape (LinkedIn, photos, careers pages) ──
+  const CAUTION_CHECKS = [
+    "<b>Check their LinkedIn for an “Open to Work” badge.</b> A recruiter who's job-hunting isn't placing you — that's a stolen-identity tell.",
+    "<b>Reverse-image-search their profile photo</b> (right-click → Search image, or TinEye). If it shows up under another name or as stock, the profile is fake.",
+    "<b>Scan the profile's depth.</b> Under ~150 connections, no posts, and no recommendations point to a thin or fabricated account.",
+    "<b>Find this exact role on the company's own careers page.</b> If a real company is hiring, it's listed. No listing often means a ghost job.",
+    "<b>Confirm the email domain matches the company's real website</b> — watch for lookalikes (e.g. a missing or swapped letter).",
+    "<b>Open the company's LinkedIn page.</b> Real employees, history, and a sensible headcount should line up with what they're claiming."
+  ];
+
+  function renderCaution(d) {
+    const card = document.getElementById('cautionCard');
+    const legit = 100 - (d.scam_likelihood_score || 0);
+    // Only show for the uncertain middle ground — not a clear go or a clear walk-away
+    if (legit >= 75 || legit < 25) { card.style.display = 'none'; return; }
+    const list = document.getElementById('cautionList');
+    list.innerHTML = CAUTION_CHECKS.map(c => `<li>${c}</li>`).join('');
+    card.style.display = 'block';
+  }
+
+  // ── App state ─────────────────────────────────────────────────────────────────
+  let selCh = null, curAnalysisId = null;
+
+  const msgEl  = document.getElementById('msg'),
+        ccEl   = document.getElementById('cc'),
+        abtn   = document.getElementById('abtn'),
+        btnTxt = document.getElementById('btnTxt'),
+        spin   = document.getElementById('spin'),
+        errEl  = document.getElementById('err'),
+        resEl  = document.getElementById('res');
+
+  msgEl.addEventListener('input', () => {
+    const n = msgEl.value.length;
+    ccEl.textContent = n.toLocaleString() + ' char' + (n !== 1 ? 's' : '');
+  });
+
+  function setCh(p) {
+    document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    selCh = p.dataset.ch;
+    const map = {email:'fieldEmail', linkedin:'fieldLinkedIn', sms:'fieldSMS', other:'fieldOther'};
+    ['fieldEmail','fieldLinkedIn','fieldSMS','fieldOther'].forEach(id =>
+      document.getElementById(id).classList.remove('on'));
+    if (map[selCh]) document.getElementById(map[selCh]).classList.add('on');
+  }
+
+  function showToast(msg, dur=1800) {
+    const t = document.getElementById('toast'); t.textContent = msg;
+    t.classList.add('show'); setTimeout(() => t.classList.remove('show'), dur);
+  }
+
+  function setLoad(on, btn, sp, txt, msg) {
+    btn.disabled = on; sp.style.display = on ? 'block' : 'none';
+    txt.textContent = on ? msg : (btn === abtn ? 'Get the read' : 'Update my assessment');
+  }
+
+  function showErr(m) { errEl.textContent = m; errEl.style.display = 'block'; }
+  function hideErr()  { errEl.style.display = 'none'; }
+
+  function mkList(el, items, empty) {
+    el.innerHTML = '';
+    if (items && items.length) {
+      items.forEach(t => { const li = document.createElement('li'); li.textContent = t; el.appendChild(li); });
+    } else { el.innerHTML = `<span class="none-txt">${empty}</span>`; }
+  }
+
+  function toggleDetail() {
+    const body = document.getElementById('detailBody');
+    const open = body.classList.toggle('open');
+    document.getElementById('detailToggleTxt').textContent = (open?'▲':'▼') + '  Full details';
+    document.getElementById('detailToggleSub').textContent = open ? 'Collapse' : 'Why · What to do';
+  }
+
+  // ── Verdict — score ring + tier label only ────────────────────────────────────
+  function renderVerdict(d) {
+    const score = d.scam_likelihood_score;   // model's scam score (high = scam)
+    const legit = 100 - score;               // displayed legitimacy score (high = legit)
+    let tier, tierLabel;
+    if      (legit >= 75) { tier='go';      tierLabel='Proceed with confidence'; }
+    else if (legit >= 50) { tier='watch';   tierLabel='Verify before you engage'; }
+    else if (legit >= 25) { tier='concern'; tierLabel='Significant concerns'; }
+    else                  { tier='away';    tierLabel='Not worth your time'; }
+    const tierColors = { go:'#0f766e', watch:'#d97706', concern:'#ea580c', away:'#dc2626' };
+    document.getElementById('verdictCard').className = `verdict ${tier}`;
+    document.getElementById('vRingFill').setAttribute('stroke', tierColors[tier]);
+    document.getElementById('vRingFill').setAttribute('stroke-dasharray', `${legit} ${100-legit}`);
+    document.getElementById('vRingNum').textContent = legit;
+    document.getElementById('vLabel').textContent   = tierLabel;
+    // Recommendation lives in full details
+    const rec = d.recommendation || '';
+    document.getElementById('recText').textContent = (rec.match(/[^.!?]+[.!?]+/)||[rec])[0].trim();
+  }
+
+  // ── Alert pills — keyword flags + xref + type, all inline on the verdict card ─
+  function buildVerdictAlerts(kf, xrefs, sc) {
+    const wrap = document.getElementById('vAlerts');
+    wrap.innerHTML = '';
+    const pills = [];
+
+    // Keyword flags
+    if (kf && kf.any) {
+      if ((kf.fee||[]).length)         pills.push({cls:'kw-fee',    txt:'💰 Fee language'});
+      if ((kf.pii||[]).length)         pills.push({cls:'kw-pii',    txt:'🪪 Personal info requested'});
+      if ((kf.urgency||[]).length)     pills.push({cls:'kw-urgency',txt:'⚡ Pressure tactics'});
+      if ((kf.off_channel||[]).length) pills.push({cls:'kw-off',    txt:'📱 Off-channel push'});
+    }
+
+    // Cross-reference
+    if (xrefs && xrefs.length) {
+      pills.push({cls:'xref', txt:`🔗 Seen before (${xrefs.length})`});
+      // Render detail in the xref detail section inside full details
+      const xd = document.getElementById('xrefDetail'), xl = document.getElementById('xlist');
+      xl.innerHTML = '';
+      xrefs.forEach(r => {
+        const date = new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        const who  = [...r.prev_names,...r.prev_companies].filter(Boolean).slice(0,2).join(' @ ')||'unknown';
+        const div  = document.createElement('div');
+        div.style = 'font-size:.82rem;padding:6px 0;border-bottom:1px solid #f3e8ff;line-height:1.5';
+        div.innerHTML = `<strong>${r.score}/100 · ${r.label}</strong> — matched ${r.match_type} <code style="background:#f3f4f6;padding:1px 4px;border-radius:3px">${r.match_value}</code> prev. as <em>${who}</em><br><span style="font-size:.73rem;color:var(--muted)">${date} · <a href="/history" style="color:#7c3aed">View →</a></span>`;
+        xl.appendChild(div);
+      });
+      xd.style.display = 'block';
+    } else {
+      document.getElementById('xrefDetail').style.display = 'none';
+    }
+
+    // Classification type
+    if (sc && sc.primary_type && sc.primary_type !== 'unknown') {
+      const icons = {legitimate:'✓',ghost_job:'👻',data_harvesting:'🪪',pay_to_play:'💰',advance_fee:'💸',impersonation:'🎭'};
+      const cls = sc.primary_type==='legitimate'?'ok'
+                : ['data_harvesting','advance_fee','impersonation'].includes(sc.primary_type)?'risk'
+                : sc.primary_type==='ghost_job'?'mid':'plain';
+      pills.push({cls, txt:`${icons[sc.primary_type]||'⚠'} ${sc.type_label||sc.primary_type}`});
+    }
+
+    if (pills.length) {
+      pills.forEach(p => {
+        const span = document.createElement('span');
+        span.className = `v-alert-pill ${p.cls}`;
+        span.textContent = p.txt;
+        wrap.appendChild(span);
+      });
+      wrap.style.display = 'flex';
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+
+  // ── Reasons (signal chips) ────────────────────────────────────────────────────
+  function renderReasons(good, bad) {
+    const el = document.getElementById('reasonsList');
+    const hd = document.getElementById('reasonsHd');
+    el.innerHTML = '';
+    const gc = (good||[]).length, bc = (bad||[]).length;
+    if (!gc && !bc) { el.innerHTML='<span class="none-txt">No signals noted.</span>'; return; }
+    if (hd) hd.textContent = [gc?`${gc} green`:'', bc?`${bc} red`:''].filter(Boolean).join(' · ');
+    if (gc) {
+      const wrap = document.createElement('div'); wrap.className = 'signal-chips';
+      (good||[]).forEach(t => {
+        const c = document.createElement('span'); c.className = 'signal-chip good';
+        c.textContent = t; c.title = t; wrap.appendChild(c);
+      });
+      el.appendChild(wrap);
+    }
+    if (bc) {
+      const wrap = document.createElement('div'); wrap.className = 'signal-chips';
+      if (gc) wrap.style.marginTop = '7px';
+      (bad||[]).forEach(t => {
+        const c = document.createElement('span'); c.className = 'signal-chip bad';
+        c.textContent = t; c.title = t; wrap.appendChild(c);
+      });
+      el.appendChild(wrap);
+    }
+  }
+
+  // ── Main flow ─────────────────────────────────────────────────────────────────
+  async function runAnalysis(){
+    const message=msgEl.value.trim();
+    const channel=selCh||'unknown';
+    const fieldMap={email:'sEmail',linkedin:'linkedinUrl',sms:'phoneNum',other:'otherSource'};
+    const contactEl = fieldMap[channel] ? document.getElementById(fieldMap[channel]) : null;
+    const contact_info = contactEl ? (contactEl.value.trim()||null) : null;
+    if(!message){showErr('Paste a recruiter message first.');return;}
+    hideErr(); setLoad(true,abtn,spin,btnTxt,'Researching + analyzing…');
+    resEl.style.display='none';
+    try{
+      const r=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({message,channel,contact_info})});
+      const d=await r.json();
+      if(!r.ok){showErr(d.error||'Something went wrong.');return;}
+      renderResults(d);
+    }catch{showErr('Network error — is the server running?');}
+    finally{setLoad(false,abtn,spin,btnTxt,'');}
+  }
+
+  function renderResults(d){
+    curAnalysisId=d.analysis_id;
+    renderVerdict(d);
+    buildVerdictAlerts(d.keyword_flags, d.cross_references, d.scam_classification);
+    renderReasons(d.legitimate_signals, d.red_flags);
+    renderCaution(d);
+
+    // Tailored questions
+    const levList=document.getElementById('levList'); levList.innerHTML='';
+    (d.follow_up_questions||[]).forEach((q,i)=>{
+      const div=document.createElement('div'); div.className='lev-item';
+      div.innerHTML=`<span class="lev-n">${i+1}</span><span class="lev-q">${q}</span><span class="lev-hint">Copy</span>`;
+      div.addEventListener('click',()=>copyQ(q));
+      levList.appendChild(div);
+    });
+
+    // Detail cards
+    const ci=d.company_intel||{};
+    document.getElementById('inamed').textContent=ci.named_company?'Stated: '+ci.named_company:'Not disclosed';
+    document.getElementById('ilikely').textContent=ci.likely_identity||'';
+    const ic=document.getElementById('iconf'); ic.textContent=(ci.confidence||'')+' confidence'; ic.className='iconf '+(ci.confidence||'');
+    mkList(document.getElementById('iclues'),ci.clues||[],'No specific clues found.');
+    const cw=document.getElementById('iconcwrap');
+    if(ci.identity_concerns&&ci.identity_concerns.length){mkList(document.getElementById('iconc'),ci.identity_concerns,'');cw.style.display='block';}
+    else{cw.style.display='none';}
+
+    const p2p=d.pay_to_play||{};
+    document.getElementById('p2pm').style.width=(p2p.score||0)+'%';
+    const ml=document.getElementById('p2ml'); ml.textContent=(p2p.label||'')+' ('+(p2p.score||0)+'/100)'; ml.className='mlb '+(p2p.label||'').replace(' ','-');
+    const p2sw=document.getElementById('p2sw');
+    if(p2p.signals&&p2p.signals.length){mkList(document.getElementById('p2si'),p2p.signals,'');p2sw.style.display='block';}else{p2sw.style.display='none';}
+    const p2tw=document.getElementById('p2tw');
+    if(p2p.likely_tactics&&p2p.likely_tactics.length){mkList(document.getElementById('p2ta'),p2p.likely_tactics,'');p2tw.style.display='block';}else{p2tw.style.display='none';}
+
+    const wp=d.web_presence||{};
+    document.getElementById('wsum').textContent=wp.summary||'';
+    document.getElementById('wbadge').style.display=d.web_research_ran?'inline-flex':'none';
+    mkList(document.getElementById('wleg'),wp.legitimate_findings||[],'Nothing verifiable found.');
+    mkList(document.getElementById('wflg'),wp.red_flags||[],'No concerns found.');
+
+    document.getElementById('rsn').textContent=d.reasoning||'';
+
+    const u=d.usage||{};
+    const pts=[(u.input_tokens||0).toLocaleString()+' input'];
+    if(u.cache_read_input_tokens)pts.push(u.cache_read_input_tokens.toLocaleString()+' cached');
+    pts.push((u.output_tokens||0).toLocaleString()+' output');
+    const prov=d.provider?`Analyzed by ${d.provider} · `:'';
+    document.getElementById('tf').textContent=prov+'Tokens: '+pts.join(' · ');
+
+    // Collapse detail on fresh analysis
+    document.getElementById('detailBody').classList.remove('open');
+    document.getElementById('detailToggleTxt').textContent='▼  Full details';
+    document.getElementById('detailToggleSub').textContent='Why · What to do';
+
+    resEl.style.display='block';
+    resEl.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  function resetForm(){
+    resEl.style.display='none'; msgEl.value=''; ccEl.textContent='0 chars';
+    ['sEmail','linkedinUrl','phoneNum','otherSource'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.value='';
+    });
+    hideErr(); curAnalysisId=null;
+    msgEl.focus(); window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  msgEl.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')runAnalysis();});
+
+  // Default to Email source so a field is visible on load
+  setCh(document.querySelector('.pill[data-ch="email"]'));
+</script>
+</body>
+</html>

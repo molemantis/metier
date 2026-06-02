@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/assets/metier-icon-small.svg" />
+  <title>Questions to Ask · Metier</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#eef0f2;--surface:#fff;--border:#cdd1d4;--text:#0c2340;--muted:#6b7682;
+      --accent:#0c2340;--accent-h:#081a30;--accent-bg:#eef1f4;--accent-bd:#c4c6c8;
+      --go:#0f766e;--go-bg:#f0fdfa;--go-bd:#5eead4;
+      --green:#059669;--red:#dc2626;
+      --r:12px;--sh:0 2px 8px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04)
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg);color:var(--text);min-height:100vh;padding:28px 16px 80px;line-height:1.6}
+    .page{max-width:660px;margin:0 auto}
+
+    /* Shared header */
+    .hdr{text-align:center;margin-bottom:24px}
+    .logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:10px}
+    .logo-icon{width:38px;height:38px;background:var(--accent);border-radius:10px;
+               display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+               box-shadow:0 2px 8px rgba(12,35,64,.35)}
+    .logo-name{font-size:1.65rem;font-weight:800;letter-spacing:-.5px}
+    .logo-name span{color:var(--accent)}
+    .hdr-nav{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+    .nav-link{font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;
+              padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .14s}
+    .nav-link:hover{color:var(--accent);background:var(--accent-bg)}
+    .nav-link.active{color:var(--accent);background:var(--accent-bg);font-weight:700}
+
+    /* Page intro */
+    .intro{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+           padding:18px 20px;margin-bottom:14px;box-shadow:var(--sh)}
+    .intro h1{font-size:1.15rem;font-weight:800;margin-bottom:6px;line-height:1.3}
+    .intro p{font-size:.86rem;color:var(--muted);line-height:1.6}
+
+    /* Questions list */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+          overflow:hidden;box-shadow:var(--sh);margin-bottom:14px}
+    .q-item{padding:14px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+    .q-item:last-child{border-bottom:none}
+    .q-item:hover{background:var(--accent-bg)}
+    .q-num{font-size:.67rem;font-weight:800;color:var(--accent);background:var(--accent-bg);
+           border:1.5px solid var(--accent-bd);border-radius:50%;width:19px;height:19px;
+           display:inline-flex;align-items:center;justify-content:center;margin-right:9px;flex-shrink:0;vertical-align:middle}
+    .q-text{font-size:.88rem;font-weight:600;color:var(--text);line-height:1.5}
+    .q-why{font-size:.75rem;color:var(--muted);margin-top:4px;line-height:1.45;padding-left:28px}
+    .q-copy{font-size:.65rem;color:var(--accent);opacity:0;float:right;transition:opacity .12s;margin-top:2px}
+    .q-item:hover .q-copy{opacity:1}
+
+    .copy-all{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);
+              font-size:.92rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .14s;box-shadow:var(--sh)}
+    .copy-all:hover{background:var(--accent-h)}
+
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#0c2340;color:#fff;
+           font-size:.79rem;padding:7px 16px;border-radius:20px;opacity:0;pointer-events:none;transition:opacity .18s;z-index:999}
+    .toast.show{opacity:1}
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header class="hdr">
+    <div class="logo">
+      <div class="logo-icon">🔍</div>
+      <div class="logo-name">Me<span>tier</span></div>
+    </div>
+    <nav class="hdr-nav">
+      <a href="/" class="nav-link">🔍 Analyzer</a>
+      <a href="/history" class="nav-link">📋 Job Tracker</a>
+      <a href="/questions" class="nav-link active">✏️ Questions to Ask</a>
+      <a href="/redflags" class="nav-link">🚩 Red Flags</a>
+    </nav>
+  </header>
+
+  <div class="intro">
+    <h1>The questions a real recruiter answers easily</h1>
+    <p>A legitimate recruiter has nothing to hide — many cover these before you even ask. Clear answers are your green light; vagueness or dodging is your red flag. Tap any question to copy it, or grab them all as a ready-to-send email reply.</p>
+  </div>
+
+  <div class="card" id="qList"></div>
+
+  <button class="copy-all" onclick="copyAll()">📋 Copy all as an email reply</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const QUESTIONS = [
+    { q: "Can you send me the direct link to this role on your company's careers page?",
+      why: "Ghost jobs have no listing. This one question filters most bad actors." },
+    { q: "Are you an internal recruiter at [company], or are you working with them as an external agency?",
+      why: "Tells you exactly who you're dealing with and what their incentive is." },
+    { q: "Who would I be reporting to in this role, and can you tell me about the team?",
+      why: "Real recruiters know the hiring manager. Vague answers mean the role may not exist." },
+    { q: "What does the interview process look like — steps, timeline, and who's involved?",
+      why: "Legitimate companies have a defined process. No process = no real job." },
+    { q: "What is the compensation range for this position?",
+      why: "Unrealistically high numbers are a red flag. Refusing to share a range is too." },
+    { q: "How long has this role been open, and what happened with previous candidates?",
+      why: "Ghost jobs stay open indefinitely. Real recruiters can tell you why the role is open." },
+    { q: "Is this a direct hire, contract, or contract-to-hire position?",
+      why: "Misrepresenting role type is common. Know what you're signing up for." },
+    { q: "Is there any cost to me at any point — for assessments, training, equipment, or anything else?",
+      why: "The answer should always be no. Any hesitation or yes is an immediate disqualifier." }
+  ];
+
+  function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+
+  function copyToClipboard(text, toast){
+    if(navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(text).then(()=>showToast(toast||'Copied ✓'));
+    } else {
+      const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0;top:0;left:0';
+      document.body.appendChild(ta);ta.focus();ta.select();
+      try{document.execCommand('copy');showToast(toast||'Copied ✓');}catch(e){showToast('Copy failed — select manually');}
+      document.body.removeChild(ta);
+    }
+  }
+
+  function buildList(){
+    document.getElementById('qList').innerHTML = QUESTIONS.map((item,i)=>`
+      <div class="q-item" onclick="copyToClipboard(${JSON.stringify(item.q).replace(/"/g,'&quot;')},'Question copied ✓')">
+        <div class="q-text"><span class="q-num">${i+1}</span>${item.q}<span class="q-copy">Copy</span></div>
+        <div class="q-why">${item.why}</div>
+      </div>`).join('');
+  }
+
+  function copyAll(){
+    const reply=[
+      "Hi,\n",
+      "Thank you for reaching out. I'd like to get clarity on the following:\n",
+      ...QUESTIONS.map((item,i)=>`${i+1}. ${item.q}`),
+      "\nThank you."
+    ].join('\n');
+    copyToClipboard(reply,'Email reply copied ✓');
+  }
+
+  buildList();
+</script>
+</body>
+</html>

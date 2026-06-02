@@ -1,0 +1,14 @@
+[Unit]
+Description=Metier — Find your calling, screen out the noise
+After=network.target
+
+[Service]
+WorkingDirectory=/home/pi/metier
+EnvironmentFile=/home/pi/metier/.env
+ExecStart=/usr/bin/python3 /home/pi/metier/app.py
+Restart=always
+RestartSec=5
+User=pi
+
+[Install]
+WantedBy=multi-user.target
