@@ -74,13 +74,14 @@
     .status-sel{font-size:.76rem;font-weight:700;border:1.5px solid;border-radius:20px;
                 padding:4px 8px;cursor:pointer;font-family:inherit;appearance:none;
                 -webkit-appearance:none;text-align:center;outline:none;min-width:104px}
-    .st-Interested  {background:#f1f5f9;border-color:#cbd5e1;color:#475569}
-    .st-Applied     {background:var(--accent-bg,#eef3f9);border-color:#b8cce0;color:var(--accent)}
-    .st-Interviewing{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber)}
+    /* Pipeline statuses (what the seeker is doing — risk shows in the score badge) */
+    .st-Interested  {background:var(--accent-bg,#eef1f4);border-color:#b8cce0;color:var(--accent)}
+    .st-Applied     {background:#e0e7ff;border-color:#c7d2fe;color:#4338ca}
+    .st-Interviewing{background:#ede9fe;border-color:#ddd6fe;color:#6d28d9}
     .st-Offer       {background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
     .st-Rejected    {background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
-    .st-Ghosted     {background:#ede9fe;border-color:#ddd6fe;color:#6d28d9}
-    .st-Scam        {background:#7f1d1d;border-color:#7f1d1d;color:#fff}
+    .st-Ghosted     {background:#e2e8f0;border-color:#cbd5e1;color:#64748b}
+    .st-Not-Pursuing{background:#f1f5f9;border-color:#cbd5e1;color:#475569}
 
     /* Score badge */
     .sbadge-wrap{display:inline-flex;flex-direction:column;align-items:center;cursor:pointer;
@@ -267,8 +268,8 @@
         <div class="fld"><label>Source</label><input type="text" id="ajSource" placeholder="LinkedIn, Indeed, referral…"/></div>
         <div class="fld"><label>Status</label>
           <select id="ajStatus">
-            <option>Interested</option><option>Applied</option><option>Interviewing</option>
-            <option>Offer</option><option>Rejected</option><option>Ghosted</option><option>Scam</option>
+            <option selected>Interested</option><option>Applied</option><option>Interviewing</option>
+            <option>Offer</option><option>Rejected</option><option>Ghosted</option><option>Not Pursuing</option>
           </select>
         </div>
       </div>
@@ -364,8 +365,10 @@
       } else {
         const legit = 100 - item.score;             // high = legit
         const t = legitTier(legit);                 // colour from the SAME number
+        const word = legit>=75?'Legit':legit>=50?'Caution':legit>=25?'Dubious':'Scam';
         badge = `<div class="sbadge-wrap" onclick="openModal(${item.id})" title="Full analysis">
-                   <div class="sbadge ${t}">${legit}</div></div>`;
+                   <div class="sbadge ${t}">${legit}</div>
+                   <div class="slabel ${t}">${word}</div></div>`;
       }
 
       const jobTitle = item.job_title || '<span class="dash">Untitled role</span>';
@@ -376,7 +379,7 @@
 
       html += `
         <tr class="trow">
-          <td><select class="status-sel st-${item.status}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
+          <td><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
           <td><div class="cell-main">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
           <td class="hide-sm">${source?`<span class="src-tag">${source}</span>`:'<span class="dash">—</span>'}</td>
@@ -391,7 +394,7 @@
   }
 
   async function changeStatus(id, status, sel) {
-    sel.className = 'status-sel st-' + status;
+    sel.className = 'status-sel st-' + status.replace(/ /g,'-');
     const item = allItems.find(i=>i.id===id); if(item) item.status = status;
     try {
       await fetch('/api/status',{method:'POST',headers:{'Content-Type':'application/json'},

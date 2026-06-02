@@ -81,7 +81,9 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-VALID_STATUSES = ["Interested", "Applied", "Interviewing", "Offer", "Rejected", "Ghosted", "Scam"]
+# Pipeline statuses (what the seeker is doing). The risk read lives in the score badge.
+VALID_STATUSES = ["Interested", "Applied", "Interviewing", "Offer",
+                  "Rejected", "Ghosted", "Not Pursuing"]
 
 def init_db():
     conn = get_db()
@@ -176,8 +178,10 @@ def _identifier_rows(analysis_id, ids):
 def save_analysis(message, channel, analysis, usage):
     result = analysis.model_dump()
     result["usage"] = dict(usage)  # usage is already a normalized dict
-    # Worst-tier results land straight in the tracker flagged as Scam
-    initial_status = "Scam" if analysis.scam_likelihood_score > 75 else "Interested"
+    # Default pipeline status from the legitimacy score (the risk itself shows in
+    # the score badge). Worth pursuing → Interested; flagged → Not Pursuing.
+    legit = 100 - analysis.scam_likelihood_score
+    initial_status = "Interested" if legit >= 50 else "Not Pursuing"
     conn = get_db()
     try:
         cur = conn.execute(
