@@ -224,6 +224,14 @@ def update_status(entry_id, status):
     finally:
         conn.close()
 
+def update_notes(entry_id, notes):
+    conn = get_db()
+    try:
+        conn.execute("UPDATE analyses SET notes=? WHERE id=?", (notes, entry_id))
+        conn.commit()
+    finally:
+        conn.close()
+
 def delete_entry(entry_id):
     conn = get_db()
     try:
@@ -824,6 +832,7 @@ def api_history():
                     "recruiter_name":"","recruiter_company":"",
                     "job_title":row["manual_title"] or "","job_company":row["manual_company"] or "",
                     "source":row["manual_source"] or "","url":row["manual_url"] or "",
+                    "notes":row["notes"] or "",
                     "emails":[],"domains":[],"recommendation":row["notes"] or "","red_flags":[]})
             else:
                 r   = json.loads(row["result_json"] or "{}")
@@ -837,6 +846,7 @@ def api_history():
                     "job_title":       ids.get("job_title",""),
                     "job_company":     ids.get("job_company",""),
                     "emails":ids.get("emails",[]),"domains":ids.get("domains",[]),
+                    "notes":row["notes"] or "",
                     "recommendation":r.get("recommendation",""),
                     "red_flags":r.get("red_flags",[])})
         return jsonify({"total":total,"items":items,"statuses":VALID_STATUSES})
@@ -867,6 +877,16 @@ def api_update_status():
     if not entry_id or status not in VALID_STATUSES:
         return jsonify({"error":"Valid id and status required."}), 400
     update_status(entry_id, status)
+    return jsonify({"ok":True})
+
+@app.route("/api/notes", methods=["POST"])
+def api_update_notes():
+    data     = request.get_json(silent=True) or {}
+    entry_id = data.get("id")
+    notes    = (data.get("notes") or "").strip()
+    if not entry_id:
+        return jsonify({"error":"id required"}), 400
+    update_notes(entry_id, notes)
     return jsonify({"ok":True})
 
 @app.route("/api/entry/<int:entry_id>", methods=["DELETE"])

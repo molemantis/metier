@@ -111,6 +111,13 @@
     .del-btn{background:none;border:none;color:#cbd5e1;font-size:1rem;cursor:pointer;padding:4px 6px;
              border-radius:6px;transition:all .12s;line-height:1}
     .del-btn:hover{color:var(--red);background:var(--red-bg)}
+    /* Inline notes */
+    .note-input{width:100%;min-width:120px;border:1px solid transparent;background:transparent;
+                font-family:inherit;font-size:.78rem;color:var(--muted);padding:5px 7px;border-radius:6px;
+                transition:all .12s}
+    .note-input:hover{background:#f1f5f9}
+    .note-input:focus{outline:none;background:#fff;border-color:var(--accent);color:var(--text)}
+    .note-input::placeholder{color:#b8c0cc;font-style:italic}
 
     /* Modal (analysis + add job) */
     .overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100;
@@ -350,6 +357,7 @@
         <th>Job</th>
         <th class="hide-sm">Company</th>
         <th class="hide-sm">Source</th>
+        <th class="hide-sm">Notes</th>
         <th class="hide-sm">Date</th>
         <th style="width:30px"></th>
       </tr></thead><tbody>`;
@@ -384,6 +392,7 @@
           <td><div class="cell-main">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
           <td class="hide-sm">${source?`<span class="src-tag">${source}</span>`:'<span class="dash">—</span>'}</td>
+          <td class="hide-sm"><input class="note-input" value="${(item.notes||'').replace(/"/g,'&quot;')}" placeholder="Add a note…" onchange="saveNote(${item.id}, this.value)" /></td>
           <td class="hide-sm"><div class="cell-dim" style="white-space:nowrap">${date}</div></td>
           <td><button class="del-btn" onclick="delEntry(${item.id})" title="Delete">✕</button></td>
         </tr>`;
@@ -401,6 +410,16 @@
         body:JSON.stringify({id,status})});
       buildFilters();
     } catch { showToast('Failed to save status'); }
+  }
+
+  async function saveNote(id, value) {
+    const notes = value.trim();
+    const item = allItems.find(i=>i.id===id); if(item) item.notes = notes;
+    try {
+      await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id, notes})});
+      showToast('Note saved ✓');
+    } catch { showToast('Failed to save note'); }
   }
 
   async function delEntry(id) {
