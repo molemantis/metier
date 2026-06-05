@@ -104,6 +104,11 @@
     /* Cells */
     .cell-main{font-weight:600;font-size:.86rem;color:var(--text)}
     .cell-link:hover{color:var(--accent);text-decoration:underline}
+    /* Star rating */
+    .stars{display:inline-flex;gap:1px}
+    .star{color:#cbd5e1;font-size:1rem;cursor:pointer;transition:color .1s;line-height:1}
+    .star.on{color:#f59e0b}
+    .star:hover{color:#f59e0b}
     .cell-sub {font-size:.74rem;color:var(--muted);margin-top:2px}
     .cell-dim {font-size:.78rem;color:var(--muted)}
     .dash{color:#cbd5e1}
@@ -340,6 +345,23 @@
 
   // Legitimacy score (high = legit). Color + number both come from this — never disagree.
   function legitTier(legit){return legit>=75?'go':legit>=50?'watch':legit>=25?'concern':'away';}
+  function legitWordTier(w){return {Legit:'go',Caution:'watch',Dubious:'concern',Scam:'away'}[w]||'none';}
+
+  // Star rating (1-5). Click a star to set; click the current value to clear.
+  function starsHtml(id, rating){
+    rating = rating || 0;
+    let s = '<div class="stars">';
+    for (let n=1;n<=5;n++) s += `<span class="star ${n<=rating?'on':''}" onclick="saveRating(${id},${n})" title="${n} of 5">★</span>`;
+    return s + '</div>';
+  }
+  async function saveRating(id, n){
+    const item = allItems.find(i=>i.id===id); if(!item) return;
+    const rating = (item.rating===n) ? 0 : n;   // click current star again to clear
+    item.rating = rating;
+    renderTable();
+    try { await fetch(`/api/entry/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rating})}); }
+    catch { showToast('Failed to save rating'); }
+  }
 
   function renderTable() {
     const wrap = document.getElementById('tableWrap');
@@ -359,6 +381,7 @@
 
     let html = `<table class="tbl"><thead><tr>
         <th style="width:66px;text-align:center" title="Legitimacy score — higher is safer (green = go, red = scam)">Score</th>
+        <th style="width:92px;text-align:center" title="Your rating — how much you want this / how it's going">Rating</th>
         <th style="width:118px">Status</th>
         <th>Job</th>
         <th class="hide-sm">Company</th>
@@ -372,10 +395,17 @@
       const date = new Date(item.created_at).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'});
       const opts = STATUSES.map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('');
 
-      // Score badge — click opens the entry (edit + analysis). Manual entries show a dash.
+      // Score badge — click opens the entry (edit + analysis).
       let badge;
       if (item.entry_type==='manual' || item.score===null) {
-        badge = `<div class="sbadge-wrap" onclick="openEntry(${item.id})" title="Open entry"><div class="sbadge none">–</div></div>`;
+        if (item.manual_legit) {                    // user set their own legitimacy read
+          const t = legitWordTier(item.manual_legit);
+          badge = `<div class="sbadge-wrap" onclick="openEntry(${item.id})" title="Your legitimacy read">
+                     <div class="sbadge ${t}">${item.manual_legit[0]}</div>
+                     <div class="slabel ${t}">${item.manual_legit}</div></div>`;
+        } else {
+          badge = `<div class="sbadge-wrap" onclick="openEntry(${item.id})" title="Set a score"><div class="sbadge none">–</div></div>`;
+        }
       } else {
         const legit = 100 - item.score;             // high = legit
         const t = legitTier(legit);                 // colour from the SAME number
@@ -394,6 +424,7 @@
       html += `
         <tr class="trow">
           <td style="text-align:center">${badge}</td>
+          <td style="text-align:center">${starsHtml(item.id, item.rating)}</td>
           <td><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
           <td style="cursor:pointer" onclick="openEntry(${item.id})" title="Open & edit"><div class="cell-main cell-link">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
@@ -467,6 +498,18 @@
 
   // ── Entry modal (edit any field + see the analysis) ───────────────────────────
   function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+  let modalRating = 0;
+  function modalStarsHtml(rating){
+    let s='<div class="stars" style="font-size:1.4rem;gap:3px">';
+    for(let n=1;n<=5;n++) s+=`<span class="star ${n<=rating?'on':''}" data-n="${n}" onclick="setModalStar(${n})">★</span>`;
+    return s+'</div>';
+  }
+  function setModalStar(n){
+    modalRating = (modalRating===n) ? 0 : n;       // click current star to clear
+    document.querySelectorAll('#efStars .star').forEach(el=>{
+      el.classList.toggle('on', Number(el.dataset.n) <= modalRating);
+    });
+  }
 
   async function openEntry(id) {
     const item = allItems.find(i=>i.id===id); if(!item) return;
@@ -474,8 +517,15 @@
     const date=new Date(item.created_at).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'});
     title.textContent=(item.job_title||item.recruiter_name||'Entry')+` · ${date}`;
     overlay.classList.add('open'); document.body.style.overflow='hidden';
+    modalRating = item.rating || 0;
 
     const opts=STATUSES.map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('');
+    const isManual = (item.entry_type==='manual' || item.score===null);
+    const legitOpts=['','Legit','Caution','Dubious','Scam']
+      .map(w=>`<option value="${w}" ${w===(item.manual_legit||'')?'selected':''}>${w||'— not set —'}</option>`).join('');
+    const legitField = isManual
+      ? `<div class="fld"><label>Legitimacy (your read)</label><select id="efLegit">${legitOpts}</select></div>`
+      : '';
     body.innerHTML=`
       <div class="dc">
         <div class="dc-hd">✏️ Edit details</div>
@@ -485,6 +535,9 @@
           <div class="fld"><label>Source</label><input type="text" id="efSource" value="${esc(item.source)}"/></div>
           <div class="fld"><label>Status</label><select id="efStatus">${opts}</select></div>
         </div>
+        ${isManual ? `<div class="fld-row" style="margin-top:8px">${legitField}
+          <div class="fld"><label>Your rating</label><div id="efStars">${modalStarsHtml(modalRating)}</div></div>
+        </div>` : `<div class="fld" style="margin-top:8px"><label>Your rating</label><div id="efStars">${modalStarsHtml(modalRating)}</div></div>`}
         <div class="fld" style="margin-top:8px"><label>Link</label><input type="url" id="efUrl" value="${esc(item.url)}"/></div>
         <div class="fld" style="margin-top:8px"><label>Notes</label><textarea id="efNotes" class="modal-note">${esc(item.notes)}</textarea></div>
         <button class="save-btn" style="margin-top:10px" onclick="saveEntry(${id})">Save changes</button>
@@ -503,6 +556,7 @@
   }
 
   async function saveEntry(id){
+    const legitEl=document.getElementById('efLegit');
     const payload={
       title:   document.getElementById('efTitle').value,
       company: document.getElementById('efCompany').value,
@@ -510,7 +564,9 @@
       url:     document.getElementById('efUrl').value,
       status:  document.getElementById('efStatus').value,
       notes:   document.getElementById('efNotes').value,
+      rating:  modalRating,
     };
+    if(legitEl) payload.manual_legit = legitEl.value;
     try{
       const res=await fetch(`/api/entry/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const d=await res.json();
@@ -518,7 +574,8 @@
       const item=allItems.find(i=>i.id===id);
       if(item){item.job_title=payload.title.trim();item.job_company=payload.company.trim();
         item.source=payload.source.trim();item.url=payload.url.trim();
-        item.status=payload.status;item.notes=payload.notes.trim();}
+        item.status=payload.status;item.notes=payload.notes.trim();item.rating=modalRating;
+        if(legitEl) item.manual_legit=legitEl.value;}
       buildFilters(); renderTable();
       showToast('Saved ✓');
       closeModalDirect();

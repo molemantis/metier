@@ -118,6 +118,8 @@ def init_db():
         "manual_source":  "TEXT",
         "manual_url":     "TEXT",
         "notes":          "TEXT",
+        "personal_rating":"INTEGER NOT NULL DEFAULT 0",  # 1-5 stars, 0 = unset
+        "manual_legit":   "TEXT",                        # manual legitimacy pick for self-added jobs
     }
     for col, ddl in migrations.items():
         if col not in existing:
@@ -234,21 +236,29 @@ def update_notes(entry_id, notes):
 
 # Columns the user can edit on any entry. For vetted entries the manual_* values
 # act as display overrides over the AI-extracted fields (the analysis is untouched).
+# (key -> (column, type))
 _EDITABLE = {
-    "title":   "manual_title",
-    "company": "manual_company",
-    "source":  "manual_source",
-    "url":     "manual_url",
-    "notes":   "notes",
-    "status":  "status",
+    "title":        ("manual_title",   "str"),
+    "company":      ("manual_company", "str"),
+    "source":       ("manual_source",  "str"),
+    "url":          ("manual_url",     "str"),
+    "notes":        ("notes",          "str"),
+    "status":       ("status",         "str"),
+    "manual_legit": ("manual_legit",   "str"),  # self-set legitimacy for manual jobs
+    "rating":       ("personal_rating","int"),  # 1-5 stars, 0 = unset
 }
 
 def update_entry(entry_id, fields: dict):
     sets, vals = [], []
-    for key, col in _EDITABLE.items():
-        if key in fields:
-            sets.append(f"{col}=?")
-            vals.append((fields[key] or "").strip())
+    for key, (col, kind) in _EDITABLE.items():
+        if key not in fields:
+            continue
+        if kind == "int":
+            try:    v = max(0, min(5, int(fields[key] or 0)))
+            except (TypeError, ValueError): v = 0
+        else:
+            v = (fields[key] or "").strip()
+        sets.append(f"{col}=?"); vals.append(v)
     if not sets:
         return
     vals.append(entry_id)
@@ -845,7 +855,7 @@ def api_history():
     try:
         rows  = conn.execute(
             "SELECT id,created_at,channel,score,label,result_json,status,entry_type,"
-            "manual_title,manual_company,manual_source,manual_url,notes "
+            "manual_title,manual_company,manual_source,manual_url,notes,personal_rating,manual_legit "
             "FROM analyses ORDER BY created_at DESC LIMIT ? OFFSET ?",
             (limit,offset)).fetchall()
         total = conn.execute("SELECT COUNT(*) FROM analyses").fetchone()[0]
@@ -860,6 +870,7 @@ def api_history():
                     "job_title":row["manual_title"] or "","job_company":row["manual_company"] or "",
                     "source":row["manual_source"] or "","url":row["manual_url"] or "",
                     "notes":row["notes"] or "",
+                    "rating":row["personal_rating"] or 0,"manual_legit":row["manual_legit"] or "",
                     "emails":[],"domains":[],"recommendation":row["notes"] or "","red_flags":[]})
             else:
                 r   = json.loads(row["result_json"] or "{}")
@@ -877,6 +888,7 @@ def api_history():
                     "url":             row["manual_url"]     or "",
                     "emails":ids.get("emails",[]),"domains":ids.get("domains",[]),
                     "notes":row["notes"] or "",
+                    "rating":row["personal_rating"] or 0,"manual_legit":"",
                     "recommendation":r.get("recommendation",""),
                     "red_flags":r.get("red_flags",[])})
         return jsonify({"total":total,"items":items,"statuses":VALID_STATUSES})
@@ -919,11 +931,15 @@ def api_update_notes():
     update_notes(entry_id, notes)
     return jsonify({"ok":True})
 
+LEGIT_WORDS = {"", "Legit", "Caution", "Dubious", "Scam"}
+
 @app.route("/api/entry/<int:entry_id>", methods=["POST"])
 def api_update_entry(entry_id):
     data = request.get_json(silent=True) or {}
     if "status" in data and data["status"] and data["status"] not in VALID_STATUSES:
         return jsonify({"error": "Invalid status."}), 400
+    if "manual_legit" in data and (data["manual_legit"] or "") not in LEGIT_WORDS:
+        return jsonify({"error": "Invalid legitimacy value."}), 400
     update_entry(entry_id, data)
     return jsonify({"ok": True})
 
