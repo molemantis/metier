@@ -232,6 +232,33 @@ def update_notes(entry_id, notes):
     finally:
         conn.close()
 
+# Columns the user can edit on any entry. For vetted entries the manual_* values
+# act as display overrides over the AI-extracted fields (the analysis is untouched).
+_EDITABLE = {
+    "title":   "manual_title",
+    "company": "manual_company",
+    "source":  "manual_source",
+    "url":     "manual_url",
+    "notes":   "notes",
+    "status":  "status",
+}
+
+def update_entry(entry_id, fields: dict):
+    sets, vals = [], []
+    for key, col in _EDITABLE.items():
+        if key in fields:
+            sets.append(f"{col}=?")
+            vals.append((fields[key] or "").strip())
+    if not sets:
+        return
+    vals.append(entry_id)
+    conn = get_db()
+    try:
+        conn.execute(f"UPDATE analyses SET {', '.join(sets)} WHERE id=?", vals)
+        conn.commit()
+    finally:
+        conn.close()
+
 def delete_entry(entry_id):
     conn = get_db()
     try:
@@ -837,14 +864,17 @@ def api_history():
             else:
                 r   = json.loads(row["result_json"] or "{}")
                 ids = r.get("identifiers",{})
+                # manual_* columns act as user overrides for the extracted fields
                 items.append({
                     "id":row["id"],"created_at":row["created_at"],"entry_type":"vetted",
                     "status":row["status"] or "Interested",
                     "channel":row["channel"],"score":row["score"],"label":row["label"],
                     "recruiter_name":  (ids.get("recruiter_names") or [""])[0],
                     "recruiter_company": ids.get("recruiter_company",""),
-                    "job_title":       ids.get("job_title",""),
-                    "job_company":     ids.get("job_company",""),
+                    "job_title":       row["manual_title"]   or ids.get("job_title",""),
+                    "job_company":     row["manual_company"] or ids.get("job_company",""),
+                    "source":          row["manual_source"]  or "",
+                    "url":             row["manual_url"]     or "",
                     "emails":ids.get("emails",[]),"domains":ids.get("domains",[]),
                     "notes":row["notes"] or "",
                     "recommendation":r.get("recommendation",""),
@@ -888,6 +918,14 @@ def api_update_notes():
         return jsonify({"error":"id required"}), 400
     update_notes(entry_id, notes)
     return jsonify({"ok":True})
+
+@app.route("/api/entry/<int:entry_id>", methods=["POST"])
+def api_update_entry(entry_id):
+    data = request.get_json(silent=True) or {}
+    if "status" in data and data["status"] and data["status"] not in VALID_STATUSES:
+        return jsonify({"error": "Invalid status."}), 400
+    update_entry(entry_id, data)
+    return jsonify({"ok": True})
 
 @app.route("/api/entry/<int:entry_id>", methods=["DELETE"])
 def api_delete_entry(entry_id):

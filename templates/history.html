@@ -103,6 +103,7 @@
 
     /* Cells */
     .cell-main{font-weight:600;font-size:.86rem;color:var(--text)}
+    .cell-link:hover{color:var(--accent);text-decoration:underline}
     .cell-sub {font-size:.74rem;color:var(--muted);margin-top:2px}
     .cell-dim {font-size:.78rem;color:var(--muted)}
     .dash{color:#cbd5e1}
@@ -371,15 +372,15 @@
       const date = new Date(item.created_at).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'});
       const opts = STATUSES.map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('');
 
-      // Legit badge: vetted → clickable score; manual → dash
+      // Score badge — click opens the entry (edit + analysis). Manual entries show a dash.
       let badge;
       if (item.entry_type==='manual' || item.score===null) {
-        badge = `<div class="sbadge-wrap" style="cursor:default"><div class="sbadge none">–</div></div>`;
+        badge = `<div class="sbadge-wrap" onclick="openEntry(${item.id})" title="Open entry"><div class="sbadge none">–</div></div>`;
       } else {
         const legit = 100 - item.score;             // high = legit
         const t = legitTier(legit);                 // colour from the SAME number
         const word = legit>=75?'Legit':legit>=50?'Caution':legit>=25?'Dubious':'Scam';
-        badge = `<div class="sbadge-wrap" onclick="openModal(${item.id})" title="Full analysis">
+        badge = `<div class="sbadge-wrap" onclick="openEntry(${item.id})" title="Why this score">
                    <div class="sbadge ${t}">${legit}</div>
                    <div class="slabel ${t}">${word}</div></div>`;
       }
@@ -394,7 +395,7 @@
         <tr class="trow">
           <td style="text-align:center">${badge}</td>
           <td><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
-          <td><div class="cell-main">${jobTitle}</div>${recOrSrc}</td>
+          <td style="cursor:pointer" onclick="openEntry(${item.id})" title="Open & edit"><div class="cell-main cell-link">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
           <td class="hide-sm">${source?`<span class="src-tag">${source}</span>`:'<span class="dash">—</span>'}</td>
           <td class="hide-sm"><input class="note-input" value="${(item.notes||'').replace(/"/g,'&quot;')}" placeholder="Add a note…" onchange="saveNote(${item.id}, this.value)" /></td>
@@ -464,37 +465,71 @@
     } catch { showToast('Network error'); }
   }
 
-  // ── Analysis modal ────────────────────────────────────────────────────────────
-  async function openModal(id) {
-    const overlay=document.getElementById('overlay'),body=document.getElementById('modalBody'),title=document.getElementById('modalTitle');
-    body.innerHTML='<div class="modal-loading">Loading full analysis…</div>';
-    title.textContent='Full Analysis';
-    overlay.classList.add('open');document.body.style.overflow='hidden';
-    try {
-      const res=await fetch(`/api/analysis/${id}`);const d=await res.json();
-      if(!res.ok){body.innerHTML=`<div class="modal-loading">Error: ${d.error}</div>`;return;}
-      renderModal(d);
-      const item=allItems.find(i=>i.id===id);
-      // Editable notes at the top of the modal
-      const noteVal=(item&&item.notes?item.notes:'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-      body.insertAdjacentHTML('afterbegin',
-        `<div class="dc"><div class="dc-hd">📝 Your notes</div>
-           <textarea class="modal-note" placeholder="Add a note — applied date, follow-up, anything…"
-             onchange="saveNoteFromModal(${id}, this.value)">${noteVal}</textarea></div>`);
-      if(item){const date=new Date(item.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-        title.textContent=(item.recruiter_name||item.job_title||'Analysis')+` · ${date}`;}
-    } catch { body.innerHTML='<div class="modal-loading">Failed to load.</div>'; }
+  // ── Entry modal (edit any field + see the analysis) ───────────────────────────
+  function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+  async function openEntry(id) {
+    const item = allItems.find(i=>i.id===id); if(!item) return;
+    const overlay=document.getElementById('overlay'), body=document.getElementById('modalBody'), title=document.getElementById('modalTitle');
+    const date=new Date(item.created_at).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'});
+    title.textContent=(item.job_title||item.recruiter_name||'Entry')+` · ${date}`;
+    overlay.classList.add('open'); document.body.style.overflow='hidden';
+
+    const opts=STATUSES.map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('');
+    body.innerHTML=`
+      <div class="dc">
+        <div class="dc-hd">✏️ Edit details</div>
+        <div class="fld"><label>Job title</label><input type="text" id="efTitle" value="${esc(item.job_title)}"/></div>
+        <div class="fld" style="margin-top:8px"><label>Company</label><input type="text" id="efCompany" value="${esc(item.job_company)}"/></div>
+        <div class="fld-row" style="margin-top:8px">
+          <div class="fld"><label>Source</label><input type="text" id="efSource" value="${esc(item.source)}"/></div>
+          <div class="fld"><label>Status</label><select id="efStatus">${opts}</select></div>
+        </div>
+        <div class="fld" style="margin-top:8px"><label>Link</label><input type="url" id="efUrl" value="${esc(item.url)}"/></div>
+        <div class="fld" style="margin-top:8px"><label>Notes</label><textarea id="efNotes" class="modal-note">${esc(item.notes)}</textarea></div>
+        <button class="save-btn" style="margin-top:10px" onclick="saveEntry(${id})">Save changes</button>
+      </div>`;
+
+    // Vetted entries: show the full analysis underneath ("why this score")
+    if (item.entry_type!=='manual' && item.score!==null) {
+      body.insertAdjacentHTML('beforeend','<div class="modal-loading" id="anLoad">Loading analysis…</div>');
+      try {
+        const res=await fetch(`/api/analysis/${id}`); const d=await res.json();
+        const ld=document.getElementById('anLoad'); if(ld) ld.remove();
+        if(res.ok) body.insertAdjacentHTML('beforeend',
+          `<div class="dc-hd" style="margin:10px 2px 4px;font-size:.72rem">Why this score</div>`+analysisHtml(d));
+      } catch { const ld=document.getElementById('anLoad'); if(ld) ld.textContent='Could not load analysis.'; }
+    }
   }
 
-  async function saveNoteFromModal(id, value){
-    await saveNote(id, value);   // posts + updates allItems + toast
-    renderTable();               // sync the inline note cell behind the modal
+  async function saveEntry(id){
+    const payload={
+      title:   document.getElementById('efTitle').value,
+      company: document.getElementById('efCompany').value,
+      source:  document.getElementById('efSource').value,
+      url:     document.getElementById('efUrl').value,
+      status:  document.getElementById('efStatus').value,
+      notes:   document.getElementById('efNotes').value,
+    };
+    try{
+      const res=await fetch(`/api/entry/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d=await res.json();
+      if(!res.ok){showToast(d.error||'Failed to save');return;}
+      const item=allItems.find(i=>i.id===id);
+      if(item){item.job_title=payload.title.trim();item.job_company=payload.company.trim();
+        item.source=payload.source.trim();item.url=payload.url.trim();
+        item.status=payload.status;item.notes=payload.notes.trim();}
+      buildFilters(); renderTable();
+      showToast('Saved ✓');
+      closeModalDirect();
+    }catch{ showToast('Network error'); }
   }
+
   function closeModalDirect(){document.getElementById('overlay').classList.remove('open');document.body.style.overflow='';}
   function closeModal(e){if(e.target===document.getElementById('overlay'))closeModalDirect();}
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModalDirect();closeAddJobDirect();}});
 
-  function renderModal(d) {
+  function analysisHtml(d) {
     const score=d.scam_likelihood_score||0,label=d.scam_likelihood_label||'';
     const legit=100-score;   // display legitimacy: high = legit, low = scam
     let t=legitTier(legit);  // colour from the displayed number
@@ -512,7 +547,7 @@
     const ci=d.company_intel||{},p2p=d.pay_to_play||{},wp=d.web_presence||{},ids=d.identifiers||{};
     const mkList=(items,cls)=>items&&items.length?`<ul class="sub-list ${cls}">${items.map(i=>`<li>${i}</li>`).join('')}</ul>`:'<span style="font-size:.78rem;color:var(--muted);font-style:italic">None noted.</span>';
 
-    document.getElementById('modalBody').innerHTML=`
+    return `
       <div class="verdict ${t}">
         <div class="v-top">
           <div class="v-ring-wrap"><svg class="v-ring-svg" viewBox="0 0 36 36">
