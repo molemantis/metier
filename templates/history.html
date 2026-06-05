@@ -291,7 +291,10 @@
           </select>
         </div>
       </div>
-      <div class="fld"><label>Link <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="url" id="ajUrl" placeholder="https://…"/></div>
+      <div class="fld-row">
+        <div class="fld"><label>Salary <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="text" id="ajSalary" placeholder="e.g. $120k–140k"/></div>
+        <div class="fld"><label>Link <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input type="url" id="ajUrl" placeholder="https://…"/></div>
+      </div>
       <div class="fld"><label>Notes <span style="font-weight:400;color:var(--muted)">(optional)</span></label><textarea id="ajNotes" placeholder="Anything worth remembering…"></textarea></div>
       <button class="save-btn" onclick="submitAddJob()">Add to tracker</button>
     </div>
@@ -385,6 +388,7 @@
         <th style="width:118px">Status</th>
         <th>Job</th>
         <th class="hide-sm">Company</th>
+        <th class="hide-sm">Salary</th>
         <th class="hide-sm">Source</th>
         <th class="hide-sm">Notes</th>
         <th class="hide-sm">Date</th>
@@ -428,6 +432,7 @@
           <td><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
           <td style="cursor:pointer" onclick="openEntry(${item.id})" title="Open & edit"><div class="cell-main cell-link">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
+          <td class="hide-sm"><input class="note-input" style="min-width:80px" value="${(item.salary||'').replace(/"/g,'&quot;')}" placeholder="—" onchange="saveField(${item.id},'salary',this.value)" /></td>
           <td class="hide-sm">${source?`<span class="src-tag">${source}</span>`:'<span class="dash">—</span>'}</td>
           <td class="hide-sm"><input class="note-input" value="${(item.notes||'').replace(/"/g,'&quot;')}" placeholder="Add a note…" onchange="saveNote(${item.id}, this.value)" /></td>
           <td class="hide-sm"><div class="cell-dim" style="white-space:nowrap">${date}</div></td>
@@ -459,6 +464,16 @@
     } catch { showToast('Failed to save note'); }
   }
 
+  // Generic inline field saver (salary, etc.) — posts one field to /api/entry
+  async function saveField(id, key, value) {
+    const item = allItems.find(i=>i.id===id); if(item) item[key] = value.trim();
+    try {
+      await fetch(`/api/entry/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({[key]: value})});
+      showToast('Saved ✓');
+    } catch { showToast('Failed to save'); }
+  }
+
   async function delEntry(id) {
     if (!confirm('Remove this from your tracker?')) return;
     try {
@@ -483,13 +498,14 @@
       url:     document.getElementById('ajUrl').value.trim(),
       status:  document.getElementById('ajStatus').value,
       notes:   document.getElementById('ajNotes').value.trim(),
+      salary:  document.getElementById('ajSalary').value.trim(),
     };
     if (!payload.title && !payload.company) { showToast('Add a title or company'); return; }
     try {
       const res = await fetch('/api/application',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const d = await res.json();
       if (!res.ok) { showToast(d.error||'Failed'); return; }
-      ['ajTitle','ajCompany','ajSource','ajUrl','ajNotes'].forEach(id=>document.getElementById(id).value='');
+      ['ajTitle','ajCompany','ajSource','ajUrl','ajNotes','ajSalary'].forEach(id=>document.getElementById(id).value='');
       closeAddJobDirect();
       showToast('Added to tracker');
       loadHistory();
@@ -538,7 +554,10 @@
         ${isManual ? `<div class="fld-row" style="margin-top:8px">${legitField}
           <div class="fld"><label>Your rating</label><div id="efStars">${modalStarsHtml(modalRating)}</div></div>
         </div>` : `<div class="fld" style="margin-top:8px"><label>Your rating</label><div id="efStars">${modalStarsHtml(modalRating)}</div></div>`}
-        <div class="fld" style="margin-top:8px"><label>Link</label><input type="url" id="efUrl" value="${esc(item.url)}"/></div>
+        <div class="fld-row" style="margin-top:8px">
+          <div class="fld"><label>Salary</label><input type="text" id="efSalary" value="${esc(item.salary)}" placeholder="e.g. $120k–140k"/></div>
+          <div class="fld"><label>Link</label><input type="url" id="efUrl" value="${esc(item.url)}"/></div>
+        </div>
         <div class="fld" style="margin-top:8px"><label>Notes</label><textarea id="efNotes" class="modal-note">${esc(item.notes)}</textarea></div>
         <button class="save-btn" style="margin-top:10px" onclick="saveEntry(${id})">Save changes</button>
       </div>`;
@@ -564,6 +583,7 @@
       url:     document.getElementById('efUrl').value,
       status:  document.getElementById('efStatus').value,
       notes:   document.getElementById('efNotes').value,
+      salary:  document.getElementById('efSalary').value,
       rating:  modalRating,
     };
     if(legitEl) payload.manual_legit = legitEl.value;
@@ -575,6 +595,7 @@
       if(item){item.job_title=payload.title.trim();item.job_company=payload.company.trim();
         item.source=payload.source.trim();item.url=payload.url.trim();
         item.status=payload.status;item.notes=payload.notes.trim();item.rating=modalRating;
+        item.salary=payload.salary.trim();
         if(legitEl) item.manual_legit=legitEl.value;}
       buildFilters(); renderTable();
       showToast('Saved ✓');

@@ -120,6 +120,7 @@ def init_db():
         "notes":          "TEXT",
         "personal_rating":"INTEGER NOT NULL DEFAULT 0",  # 1-5 stars, 0 = unset
         "manual_legit":   "TEXT",                        # manual legitimacy pick for self-added jobs
+        "salary":         "TEXT",                        # free-text salary / comp
     }
     for col, ddl in migrations.items():
         if col not in existing:
@@ -201,17 +202,17 @@ def save_analysis(message, channel, analysis, usage):
     finally:
         conn.close()
 
-def add_manual_job(title, company, source, url, status, notes):
+def add_manual_job(title, company, source, url, status, notes, salary=""):
     """Insert a self-found job (no AI analysis) into the tracker."""
     conn = get_db()
     try:
         cur = conn.execute(
             "INSERT INTO analyses "
             "(created_at,msg_hash,message,channel,score,label,result_json,"
-            " status,entry_type,manual_title,manual_company,manual_source,manual_url,notes) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " status,entry_type,manual_title,manual_company,manual_source,manual_url,notes,salary) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), "", "", source or "manual", 0, "",
-             "{}", status, "manual", title, company, source, url, notes),
+             "{}", status, "manual", title, company, source, url, notes, salary),
         )
         conn.commit()
         return cur.lastrowid
@@ -246,6 +247,7 @@ _EDITABLE = {
     "status":       ("status",         "str"),
     "manual_legit": ("manual_legit",   "str"),  # self-set legitimacy for manual jobs
     "rating":       ("personal_rating","int"),  # 1-5 stars, 0 = unset
+    "salary":       ("salary",         "str"),  # free-text salary / comp
 }
 
 def update_entry(entry_id, fields: dict):
@@ -855,7 +857,7 @@ def api_history():
     try:
         rows  = conn.execute(
             "SELECT id,created_at,channel,score,label,result_json,status,entry_type,"
-            "manual_title,manual_company,manual_source,manual_url,notes,personal_rating,manual_legit "
+            "manual_title,manual_company,manual_source,manual_url,notes,personal_rating,manual_legit,salary "
             "FROM analyses ORDER BY created_at DESC LIMIT ? OFFSET ?",
             (limit,offset)).fetchall()
         total = conn.execute("SELECT COUNT(*) FROM analyses").fetchone()[0]
@@ -871,6 +873,7 @@ def api_history():
                     "source":row["manual_source"] or "","url":row["manual_url"] or "",
                     "notes":row["notes"] or "",
                     "rating":row["personal_rating"] or 0,"manual_legit":row["manual_legit"] or "",
+                    "salary":row["salary"] or "",
                     "emails":[],"domains":[],"recommendation":row["notes"] or "","red_flags":[]})
             else:
                 r   = json.loads(row["result_json"] or "{}")
@@ -889,6 +892,7 @@ def api_history():
                     "emails":ids.get("emails",[]),"domains":ids.get("domains",[]),
                     "notes":row["notes"] or "",
                     "rating":row["personal_rating"] or 0,"manual_legit":"",
+                    "salary":row["salary"] or "",
                     "recommendation":r.get("recommendation",""),
                     "red_flags":r.get("red_flags",[])})
         return jsonify({"total":total,"items":items,"statuses":VALID_STATUSES})
@@ -904,11 +908,12 @@ def api_add_application():
     url     = (data.get("url")     or "").strip()
     status  = (data.get("status")  or "Interested").strip()
     notes   = (data.get("notes")   or "").strip()
+    salary  = (data.get("salary")  or "").strip()
     if not title and not company:
         return jsonify({"error":"Add at least a job title or company."}), 400
     if status not in VALID_STATUSES:
         status = "Interested"
-    new_id = add_manual_job(title, company, source, url, status, notes)
+    new_id = add_manual_job(title, company, source, url, status, notes, salary)
     return jsonify({"id":new_id, "ok":True})
 
 @app.route("/api/status", methods=["POST"])
