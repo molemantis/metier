@@ -37,7 +37,7 @@
 
     /* Brand logo */
     .brand{display:inline-block;margin:0 0 10px}
-    .brand-img{height:52px;width:auto;display:block}
+    .brand-img{height:72px;width:auto;display:block}
     /* Nav links */
     .hdr-nav{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:16px}
     .nav-link{font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;
@@ -88,24 +88,6 @@
     .st-Ghosted     {background:#e2e8f0;border-color:#cbd5e1;color:#64748b}
     .st-Not-Pursuing{background:#f1f5f9;border-color:#cbd5e1;color:#475569}
 
-    /* Score badge */
-    .sbadge-wrap{display:inline-flex;flex-direction:column;align-items:center;cursor:pointer;
-                 transition:transform .15s;user-select:none}
-    .sbadge-wrap:hover{transform:scale(1.08)}
-    .sbadge-wrap:hover .sbadge::after{opacity:1}
-    .sbadge{display:inline-flex;align-items:center;justify-content:center;position:relative;
-            width:40px;height:40px;border-radius:50%;font-size:.9rem;font-weight:900;color:#fff;flex-shrink:0}
-    .sbadge::after{content:"🔍";position:absolute;inset:0;display:flex;align-items:center;
-                   justify-content:center;font-size:.85rem;background:rgba(0,0,0,.45);
-                   border-radius:50%;opacity:0;transition:opacity .15s}
-    .sbadge.go{background:var(--go)}.sbadge.watch{background:var(--watch)}
-    .sbadge.concern{background:var(--concern)}.sbadge.away{background:var(--away)}
-    .sbadge.none{background:#e2e8f0;color:#94a3b8;font-size:1rem;cursor:default}
-    .slabel{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;text-align:center}
-    .slabel.go{color:var(--go)}.slabel.watch{color:var(--watch)}
-    .slabel.concern{color:var(--concern)}.slabel.away{color:var(--away)}
-    .slabel.none{color:#94a3b8}
-
     /* Cells */
     .cell-main{font-weight:600;font-size:.86rem;color:var(--text)}
     .cell-link:hover{color:var(--accent);text-decoration:underline}
@@ -121,6 +103,17 @@
     .tier-B{background:#ffff7f}
     .tier-C{background:#7fff7f}
     .tier-D{background:#7fbfff}
+    /* Score — icon in a colored circle (👍 Legit / 🤨 Dubious / 👎 Scam) */
+    .sico{display:inline-flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;transition:transform .12s}
+    .sico:hover{transform:scale(1.08)}
+    .sico-c{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;
+            justify-content:center;font-size:1.1rem;border:1.5px solid;line-height:1}
+    .sico-c.go    {background:var(--go-bg);border-color:var(--go-bd)}
+    .sico-c.watch {background:var(--watch-bg);border-color:var(--watch-bd)}
+    .sico-c.away  {background:var(--away-bg);border-color:var(--away-bd)}
+    .sico-c.none  {background:#f1f5f9;border-color:#e2e8f0;color:#94a3b8;font-size:1rem}
+    .sico-l{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    .sico-l.go{color:var(--go)}.sico-l.watch{color:var(--watch)}.sico-l.away{color:var(--away)}
     .cell-sub {font-size:.74rem;color:var(--muted);margin-top:2px}
     .cell-dim {font-size:.78rem;color:var(--muted)}
     .dash{color:#cbd5e1}
@@ -179,12 +172,11 @@
     .verdict.concern{background:var(--concern-bg);border-color:var(--concern-bd)}
     .verdict.away{background:var(--away-bg);border-color:var(--away-bd)}
     .v-top{display:flex;align-items:center;gap:16px;padding:18px 20px 14px}
-    .v-ring-wrap{position:relative;width:72px;height:72px;flex-shrink:0}
-    .v-ring-svg{width:72px;height:72px;transform:rotate(-90deg)}
-    .v-track{stroke:rgba(0,0,0,.1)}
-    .v-ring-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.25rem;font-weight:900}
-    .verdict.go .v-ring-num{color:var(--go)}.verdict.watch .v-ring-num{color:var(--watch)}
-    .verdict.concern .v-ring-num{color:var(--concern)}.verdict.away .v-ring-num{color:var(--away)}
+    .v-icon{width:72px;height:72px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;
+            justify-content:center;font-size:2.2rem;line-height:1;border:2.5px solid}
+    .verdict.go .v-icon{background:var(--go-bg);border-color:var(--go-bd)}
+    .verdict.watch .v-icon{background:var(--watch-bg);border-color:var(--watch-bd)}
+    .verdict.away .v-icon{background:var(--away-bg);border-color:var(--away-bd)}
     .v-score-label{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:3px}
     .v-tier{font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
     .verdict.go .v-tier{color:var(--go)}.verdict.watch .v-tier{color:var(--watch)}
@@ -299,7 +291,7 @@
       <div class="fld"><label>Job title</label><input type="text" id="ajTitle" placeholder="Senior Software Engineer"/></div>
       <div class="fld"><label>Company</label><input type="text" id="ajCompany" placeholder="Acme Corp"/></div>
       <div class="fld-row">
-        <div class="fld"><label>Source</label><input type="text" id="ajSource" placeholder="LinkedIn, Indeed, referral…"/></div>
+        <div class="fld"><label>Source</label><select id="ajSource"></select></div>
         <div class="fld"><label>Status</label>
           <select id="ajStatus">
             <option selected>Interested</option><option>Applied</option><option>Interviewing</option>
@@ -321,6 +313,23 @@
 
 <script>
   let allItems = [], activeFilter = 'all', activeSource = 'all', STATUSES = [];
+
+  // Where a job came from — boards, ATS platforms, etc. (Other → explain in Notes)
+  const SOURCE_GROUPS = [
+    ['Job boards', ['LinkedIn','Indeed','ZipRecruiter','Glassdoor','Dice','Wellfound','Built In','Monster']],
+    ['Application systems', ['Company website','Workday','Greenhouse','Lever','Ashby','iCIMS','SmartRecruiters']],
+    ['Other', ['Referral','Recruiter','Other']],
+  ];
+  function sourceOptions(current){
+    current = current || '';
+    const known = SOURCE_GROUPS.some(g => g[1].includes(current));
+    let html = `<option value="" ${current===''?'selected':''}>— select —</option>`;
+    if (current && !known) html += `<option value="${current.replace(/"/g,'&quot;')}" selected>${current}</option>`;
+    for (const [label, opts] of SOURCE_GROUPS)
+      html += `<optgroup label="${label}">` +
+        opts.map(o=>`<option ${o===current?'selected':''}>${o}</option>`).join('') + `</optgroup>`;
+    return html;
+  }
 
   function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
 
@@ -362,15 +371,16 @@
     renderTable();
   }
 
-  // Legitimacy score (high = legit). Color + number both come from this — never disagree.
-  function legitTier(legit){return legit>=75?'go':legit>=50?'watch':legit>=25?'concern':'away';}
-  function legitWordTier(w){return {Legit:'go',Caution:'watch',Dubious:'concern',Scam:'away'}[w]||'none';}
-  function legitWordNum(w){return {Legit:88,Caution:62,Dubious:37,Scam:12}[w] ?? -1;}
+  // Legitimacy (high = legit) → 3 tiers: Legit 75-100 / Dubious 50-74 / Scam 0-49
+  function legitTier(legit){return legit>=75?'go':legit>=50?'watch':'away';}
+  function legitWord(legit){return legit>=75?'Legit':legit>=50?'Dubious':'Scam';}
+  function legitWordTier(w){return {Legit:'go',Dubious:'watch',Scam:'away'}[w]||'none';}
+  function legitWordNum(w){return {Legit:85,Dubious:62,Scam:25}[w] ?? -1;}
+  const SICON = {go:'👍', watch:'🤨', away:'👎'};   // thumbs up / skeptical / thumbs down
 
   // ── Sorting ───────────────────────────────────────────────────────────────────
   const COLUMNS = [
-    {key:'score',  label:'Score',  numeric:true,  style:'width:66px;text-align:center', cls:'', title:'Legitimacy score — higher is safer'},
-    {key:'rating', label:'Tier',   numeric:true,  style:'width:108px;text-align:center', cls:'', title:'Your tier — S (best) to D'},
+    {key:'score',  label:'Verdict', numeric:true,  style:'width:90px;text-align:center', cls:'', title:'Legitimacy verdict — Legit, Dubious or Scam'},
     {key:'status', label:'Status', numeric:true,  style:'width:118px', cls:''},
     {key:'job',    label:'Job',    numeric:false, style:'', cls:''},
     {key:'company',label:'Company',numeric:false, style:'', cls:'hide-sm'},
@@ -378,6 +388,7 @@
     {key:'source', label:'Source', numeric:false, style:'', cls:'hide-sm'},
     {key:'notes',  label:'Notes',  numeric:false, style:'', cls:'hide-sm'},
     {key:'date',   label:'Date',   numeric:true,  style:'', cls:'hide-sm'},
+    {key:'rating', label:'Tier',   numeric:true,  style:'width:108px;text-align:center', cls:'', title:'Your tier — S (best) to D'},
   ];
   let sortKey='date', sortDir='desc';
 
@@ -466,24 +477,20 @@
       const date = new Date(item.created_at).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'});
       const opts = STATUSES.map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('');
 
-      // Score badge — click opens the entry (edit + analysis).
+      // Score — icon in a colored circle; click opens the entry (edit + analysis).
       let badge;
       if (item.entry_type==='manual' || item.score===null) {
         if (item.manual_legit) {                    // user set their own legitimacy read
           const t = legitWordTier(item.manual_legit);
-          badge = `<div class="sbadge-wrap" onclick="openEntry(${item.id})" title="Your legitimacy read">
-                     <div class="sbadge ${t}">${item.manual_legit[0]}</div>
-                     <div class="slabel ${t}">${item.manual_legit}</div></div>`;
+          badge = `<span class="sico" onclick="openEntry(${item.id})" title="Your read: ${item.manual_legit}">
+                     <span class="sico-c ${t}">${SICON[t]||''}</span><span class="sico-l ${t}">${item.manual_legit}</span></span>`;
         } else {
-          badge = `<div class="sbadge-wrap" onclick="openEntry(${item.id})" title="Set a score"><div class="sbadge none">–</div></div>`;
+          badge = `<span class="sico" onclick="openEntry(${item.id})" title="Set a score"><span class="sico-c none">–</span></span>`;
         }
       } else {
-        const legit = 100 - item.score;             // high = legit
-        const t = legitTier(legit);                 // colour from the SAME number
-        const word = legit>=75?'Legit':legit>=50?'Caution':legit>=25?'Dubious':'Scam';
-        badge = `<div class="sbadge-wrap" onclick="openEntry(${item.id})" title="Why this score">
-                   <div class="sbadge ${t}">${legit}</div>
-                   <div class="slabel ${t}">${word}</div></div>`;
+        const legit = 100 - item.score; const t = legitTier(legit); const word = legitWord(legit);
+        badge = `<span class="sico" onclick="openEntry(${item.id})" title="${word} — see why">
+                   <span class="sico-c ${t}">${SICON[t]}</span><span class="sico-l ${t}">${word}</span></span>`;
       }
 
       const jobTitle = item.job_title || '<span class="dash">Untitled role</span>';
@@ -495,7 +502,6 @@
       html += `
         <tr class="trow">
           <td style="text-align:center">${badge}</td>
-          <td style="text-align:center">${tierHtml(item.id, item.rating)}</td>
           <td><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
           <td style="cursor:pointer" onclick="openEntry(${item.id})" title="Open & edit"><div class="cell-main cell-link">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
@@ -503,6 +509,7 @@
           <td class="hide-sm">${source?`<span class="src-tag">${source}</span>`:'<span class="dash">—</span>'}</td>
           <td class="hide-sm"><input class="note-input" value="${(item.notes||'').replace(/"/g,'&quot;')}" placeholder="Add a note…" onchange="saveNote(${item.id}, this.value)" /></td>
           <td class="hide-sm"><div class="cell-dim" style="white-space:nowrap">${date}</div></td>
+          <td style="text-align:center">${tierHtml(item.id, item.rating)}</td>
           <td><button class="del-btn" onclick="delEntry(${item.id})" title="Delete">✕</button></td>
         </tr>`;
     });
@@ -604,7 +611,7 @@
 
     const opts=STATUSES.map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('');
     const isManual = (item.entry_type==='manual' || item.score===null);
-    const legitOpts=['','Legit','Caution','Dubious','Scam']
+    const legitOpts=['','Legit','Dubious','Scam']
       .map(w=>`<option value="${w}" ${w===(item.manual_legit||'')?'selected':''}>${w||'— not set —'}</option>`).join('');
     const legitField = isManual
       ? `<div class="fld"><label>Legitimacy (your read)</label><select id="efLegit">${legitOpts}</select></div>`
@@ -615,7 +622,7 @@
         <div class="fld"><label>Job title</label><input type="text" id="efTitle" value="${esc(item.job_title)}"/></div>
         <div class="fld" style="margin-top:8px"><label>Company</label><input type="text" id="efCompany" value="${esc(item.job_company)}"/></div>
         <div class="fld-row" style="margin-top:8px">
-          <div class="fld"><label>Source</label><input type="text" id="efSource" value="${esc(item.source)}"/></div>
+          <div class="fld"><label>Source</label><select id="efSource">${sourceOptions(item.source)}</select></div>
           <div class="fld"><label>Status</label><select id="efStatus">${opts}</select></div>
         </div>
         ${isManual ? `<div class="fld-row" style="margin-top:8px">${legitField}
@@ -679,8 +686,8 @@
     const legit=100-score;   // display legitimacy: high = legit, low = scam
     let t=legitTier(legit);  // colour from the displayed number
     const tierColors={go:'#0f766e',watch:'#d97706',concern:'#ea580c',away:'#dc2626'};
-    const tierLabels={go:'Proceed with confidence',watch:'Verify before you engage',concern:'Significant concerns',away:'Not worth your time'};
-    const headlines={go:'This looks like a real opportunity.',watch:'A few things to check first.',concern:"Know what you're walking into.",away:'Walk away — your time is too valuable for this.'};
+    const tierLabels={go:'Legit — proceed with confidence',watch:'Dubious — verify before you engage',away:'Likely a scam'};
+    const headlines={go:'This looks like a real opportunity.',watch:'A few things to check first.',away:'Walk away — your time is too valuable for this.'};
     const subs={Low:'Signals look legitimate.',Medium:'Worth a quick check before you respond.',High:'Real issues here.','Very High':'Your energy is worth more than this.'};
     const sc=d.scam_classification||{};
     const icons={legitimate:'✓',ghost_job:'👻',data_harvesting:'🪪',pay_to_play:'💰',advance_fee:'💸',impersonation:'🎭'};
@@ -695,12 +702,9 @@
     return `
       <div class="verdict ${t}">
         <div class="v-top">
-          <div class="v-ring-wrap"><svg class="v-ring-svg" viewBox="0 0 36 36">
-            <circle cx="18" cy="18" r="15.9" fill="none" stroke-width="2.8" class="v-track"/>
-            <circle cx="18" cy="18" r="15.9" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-dasharray="${legit} ${100-legit}" stroke="${tierColors[t]}"/>
-          </svg><div class="v-ring-num">${legit}</div></div>
+          <div class="v-icon">${SICON[t]||'–'}</div>
           <div style="flex:1">
-            <div class="v-score-label">Legitimacy Score</div>
+            <div class="v-score-label">Legitimacy</div>
             <div class="v-tier">${tierLabels[t]||''}</div>
             <div class="v-headline">${headlines[t]||''}</div>
             <div class="v-rec">${d.recommendation||''}</div>
@@ -728,6 +732,7 @@
         <div class="detail-body" style="line-height:1.75">${d.reasoning}</div></div>`:''}`;
   }
 
+  document.getElementById('ajSource').innerHTML = sourceOptions('');
   loadHistory();
 </script>
 </body>

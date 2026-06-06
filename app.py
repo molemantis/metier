@@ -184,7 +184,7 @@ def save_analysis(message, channel, analysis, usage):
     # Default pipeline status from the legitimacy score (the risk itself shows in
     # the score badge). Worth pursuing → Interested; flagged → Not Pursuing.
     legit = 100 - analysis.scam_likelihood_score
-    initial_status = "Interested" if legit >= 50 else "Not Pursuing"
+    initial_status = "Not Pursuing" if legit < 34 else "Interested"  # Scam tier → Not Pursuing
     conn = get_db()
     try:
         cur = conn.execute(
@@ -477,6 +477,20 @@ Output style: BRIEF. Every field should be the shortest possible version that is
 - `follow_up_questions`: short, natural questions only.
 
 Never pad. Never explain what you're about to say. Just say it.
+
+---
+## SCORING BIAS — catching scams is the priority
+Your single most important job is to NOT let a scam slip through. Missing a real scam hurts \
+the job seeker far more than over-flagging a legitimate recruiter. So when you are uncertain, \
+err toward the LOWER (more suspicious) end of the scam_likelihood_score — protect the user first.
+- If signals are mixed or you can't verify the company/recruiter, do NOT default to "legitimate." \
+  Treat unverifiable as suspicious.
+- A genuinely clean, fully verifiable opportunity can still score well — don't punish the obvious good ones.
+- But any real red flag (upfront money, early PII requests, domain/identity mismatch, off-channel \
+  push, pressure, no web presence) should pull the score down hard.
+- Reserve a clearly-legitimate score only for contacts you could actually verify as real.
+Score interpretation for the user: 0–49 legitimacy = Scam, 50–74 = Dubious, 75–100 = Legit. \
+When torn between two bands, pick the more cautious (lower) one.
 
 ---
 ## CLASSIFICATION — what kind of contact is this?
@@ -936,7 +950,7 @@ def api_update_notes():
     update_notes(entry_id, notes)
     return jsonify({"ok":True})
 
-LEGIT_WORDS = {"", "Legit", "Caution", "Dubious", "Scam"}
+LEGIT_WORDS = {"", "Legit", "Dubious", "Scam"}
 
 @app.route("/api/entry/<int:entry_id>", methods=["POST"])
 def api_update_entry(entry_id):

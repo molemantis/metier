@@ -34,7 +34,7 @@
     .logo-name span{color:var(--accent)}
     .hdr-sub{color:var(--muted);font-size:.85rem;margin-bottom:10px}
     .brand{display:inline-block;margin-bottom:12px}
-    .brand-img{height:58px;width:auto;display:block}
+    .brand-img{height:72px;width:auto;display:block}
     .hdr-nav{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
     .nav-link{font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;
               padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .14s;
@@ -116,15 +116,11 @@
     .verdict.concern{background:var(--concern-bg);border-color:var(--concern-bd)}
     .verdict.away   {background:var(--away-bg);  border-color:var(--away-bd)}
     .v-top{display:flex;align-items:center;gap:20px;padding:24px 26px 20px}
-    .v-ring-wrap{position:relative;width:90px;height:90px;flex-shrink:0}
-    .v-ring-svg{width:90px;height:90px;transform:rotate(-90deg)}
-    .v-track{stroke:rgba(0,0,0,.1)}
-    .v-ring-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-                font-size:1.55rem;font-weight:900;line-height:1}
-    .verdict.go     .v-ring-num{color:var(--go)}
-    .verdict.watch  .v-ring-num{color:var(--watch)}
-    .verdict.concern .v-ring-num{color:var(--concern)}
-    .verdict.away   .v-ring-num{color:var(--away)}
+    .v-icon{width:84px;height:84px;border-radius:50%;flex-shrink:0;display:flex;
+            align-items:center;justify-content:center;font-size:2.6rem;line-height:1;border:2.5px solid}
+    .verdict.go      .v-icon{background:var(--go-bg);    border-color:var(--go-bd)}
+    .verdict.watch   .v-icon{background:var(--watch-bg); border-color:var(--watch-bd)}
+    .verdict.away    .v-icon{background:var(--away-bg);  border-color:var(--away-bd)}
     .v-body{flex:1}
     .v-score-label{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;
                    color:var(--muted);margin-bottom:6px}
@@ -326,16 +322,9 @@
     <!-- Scam Score card — the only thing you see by default -->
     <div class="verdict" id="verdictCard">
       <div class="v-top">
-        <div class="v-ring-wrap">
-          <svg class="v-ring-svg" viewBox="0 0 36 36">
-            <circle cx="18" cy="18" r="15.9" fill="none" stroke-width="2.8" class="v-track"/>
-            <circle cx="18" cy="18" r="15.9" fill="none" stroke-width="2.8"
-                    stroke-linecap="round" stroke-dasharray="0 100" id="vRingFill"/>
-          </svg>
-          <div class="v-ring-num" id="vRingNum">–</div>
-        </div>
+        <div class="v-icon" id="vIcon">–</div>
         <div class="v-body">
-          <div class="v-score-label">Legitimacy Score</div>
+          <div class="v-score-label">Legitimacy</div>
           <div class="v-tier" id="vLabel"></div>
         </div>
       </div>
@@ -500,8 +489,8 @@
   function renderCaution(d) {
     const card = document.getElementById('cautionCard');
     const legit = 100 - (d.scam_likelihood_score || 0);
-    // Only show for the uncertain middle ground — not a clear go or a clear walk-away
-    if (legit >= 75 || legit < 25) { card.style.display = 'none'; return; }
+    // Only show for the uncertain middle ground (Dubious tier)
+    if (legit >= 75 || legit < 50) { card.style.display = 'none'; return; }
     const list = document.getElementById('cautionList');
     list.innerHTML = CAUTION_CHECKS.map(c => `<li>${c}</li>`).join('');
     card.style.display = 'block';
@@ -565,16 +554,13 @@
     const score = d.scam_likelihood_score;   // model's scam score (high = scam)
     const legit = 100 - score;               // displayed legitimacy score (high = legit)
     let tier, tierLabel;
-    if      (legit >= 75) { tier='go';      tierLabel='Proceed with confidence'; }
-    else if (legit >= 50) { tier='watch';   tierLabel='Verify before you engage'; }
-    else if (legit >= 25) { tier='concern'; tierLabel='Significant concerns'; }
-    else                  { tier='away';    tierLabel='Not worth your time'; }
-    const tierColors = { go:'#0f766e', watch:'#d97706', concern:'#ea580c', away:'#dc2626' };
+    if      (legit >= 75) { tier='go';    tierLabel='Legit — proceed with confidence'; }
+    else if (legit >= 50) { tier='watch'; tierLabel='Dubious — verify before you engage'; }
+    else                  { tier='away';  tierLabel='Likely a scam'; }
+    const ICON = { go:'👍', watch:'🤨', away:'👎' };
     document.getElementById('verdictCard').className = `verdict ${tier}`;
-    document.getElementById('vRingFill').setAttribute('stroke', tierColors[tier]);
-    document.getElementById('vRingFill').setAttribute('stroke-dasharray', `${legit} ${100-legit}`);
-    document.getElementById('vRingNum').textContent = legit;
-    document.getElementById('vLabel').textContent   = tierLabel;
+    document.getElementById('vIcon').textContent   = ICON[tier];
+    document.getElementById('vLabel').textContent  = tierLabel;
     // Recommendation lives in full details
     const rec = d.recommendation || '';
     document.getElementById('recText').textContent = (rec.match(/[^.!?]+[.!?]+/)||[rec])[0].trim();
