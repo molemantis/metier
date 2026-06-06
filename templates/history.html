@@ -35,6 +35,9 @@
              border-radius:8px;padding:7px 14px;cursor:pointer;font-family:inherit;transition:background .14s}
     .add-btn:hover{background:var(--accent-h)}
 
+    /* Brand logo */
+    .brand{display:inline-block;margin:0 0 10px}
+    .brand-img{height:52px;width:auto;display:block}
     /* Nav links */
     .hdr-nav{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:16px}
     .nav-link{font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;
@@ -228,7 +231,11 @@
 <body>
 <div class="page">
 
-  <div class="hdr-nav">
+  <div style="text-align:center">
+    <a href="/" class="brand"><img src="/assets/metier-logo.svg" alt="Metier" class="brand-img"/></a>
+  </div>
+
+  <div class="hdr-nav" style="justify-content:center">
     <a href="/" class="nav-link">🔍 Analyzer</a>
     <a href="/history" class="nav-link active">📋 Job Tracker</a>
     <a href="/questions" class="nav-link">✏️ Questions to Ask</a>

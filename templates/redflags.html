@@ -25,6 +25,8 @@
                box-shadow:0 2px 8px rgba(12,35,64,.35)}
     .logo-name{font-size:1.65rem;font-weight:800;letter-spacing:-.5px}
     .logo-name span{color:var(--accent)}
+    .brand{display:inline-block;margin-bottom:12px}
+    .brand-img{height:54px;width:auto;display:block}
     .hdr-nav{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
     .nav-link{font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;
               padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .14s}
@@ -51,10 +53,7 @@
 <div class="page">
 
   <header class="hdr">
-    <div class="logo">
-      <div class="logo-icon">🔍</div>
-      <div class="logo-name">Me<span>tier</span></div>
-    </div>
+    <a href="/" class="brand"><img src="/assets/metier-logo.svg" alt="Metier" class="brand-img"/></a>
     <nav class="hdr-nav">
       <a href="/" class="nav-link">🔍 Analyzer</a>
       <a href="/history" class="nav-link">📋 Job Tracker</a>
