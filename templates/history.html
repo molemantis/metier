@@ -75,10 +75,13 @@
     .trow td:first-child{border-left:1px solid var(--border);border-radius:var(--r) 0 0 var(--r);padding-left:14px}
     .trow td:last-child {border-right:1px solid var(--border);border-radius:0 var(--r) var(--r) 0;padding-right:12px}
 
-    /* Status dropdown */
-    .status-sel{font-size:.76rem;font-weight:700;border:1.5px solid;border-radius:20px;
-                padding:4px 10px;cursor:pointer;font-family:inherit;appearance:none;
-                -webkit-appearance:none;text-align:left;outline:none;min-width:104px}
+    /* Status pill — auto-sizes to the word; invisible native select overlaid for the dropdown */
+    .stwrap{position:relative;display:inline-flex;align-items:center;gap:5px;font-size:.76rem;
+            font-weight:700;border:1.5px solid;border-radius:20px;padding:4px 11px;cursor:pointer;
+            vertical-align:middle;white-space:nowrap}
+    .stcaret{font-size:.55rem;opacity:.55}
+    .stsel{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;
+           font-family:inherit;-webkit-appearance:none;appearance:none}
     /* Pipeline statuses (what the seeker is doing — risk shows in the score badge) */
     .st-Interested  {background:var(--accent-bg,#eef1f4);border-color:#b8cce0;color:var(--accent)}
     .st-Applied     {background:#e0e7ff;border-color:#c7d2fe;color:#4338ca}
@@ -488,7 +491,7 @@
       html += `
         <tr class="trow">
           <td>${badge}</td>
-          <td style="white-space:nowrap"><span class="adot adot-${ACTIVITY[item.status]||'closed'}" title="${ACTIVITY_TITLE[ACTIVITY[item.status]]||''}"></span><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
+          <td style="white-space:nowrap"><span class="adot adot-${ACTIVITY[item.status]||'closed'}" title="${ACTIVITY_TITLE[ACTIVITY[item.status]]||''}"></span><span class="stwrap st-${(item.status||'').replace(/ /g,'-')}"><span class="sttext">${item.status}</span><span class="stcaret">▾</span><select class="stsel" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></span></td>
           <td style="cursor:pointer" onclick="openEntry(${item.id})" title="Open & edit"><div class="cell-main cell-link">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
           <td class="hide-sm"><input class="note-input" style="min-width:80px" value="${(item.salary||'').replace(/"/g,'&quot;')}" placeholder="—" onchange="saveField(${item.id},'salary',this.value)" /></td>
@@ -504,8 +507,10 @@
   }
 
   async function changeStatus(id, status, sel) {
-    sel.className = 'status-sel st-' + status.replace(/ /g,'-');
-    const dot = sel.parentElement.querySelector('.adot');
+    const wrap = sel.closest('.stwrap');
+    if (wrap) { wrap.className = 'stwrap st-' + status.replace(/ /g,'-');
+                wrap.querySelector('.sttext').textContent = status; }
+    const dot = sel.closest('td').querySelector('.adot');
     if (dot) { dot.className = 'adot adot-' + (ACTIVITY[status]||'closed');
                dot.title = ACTIVITY_TITLE[ACTIVITY[status]] || ''; }
     const item = allItems.find(i=>i.id===id); if(item) item.status = status;
