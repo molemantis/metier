@@ -82,8 +82,8 @@ def get_db():
     return conn
 
 # Pipeline statuses (what the seeker is doing). The risk read lives in the score badge.
-VALID_STATUSES = ["Interested", "Applied", "Interviewing", "Offer",
-                  "Rejected", "Ghosted", "Pass"]
+VALID_STATUSES = ["Interested", "Applied", "Interviewing", "Offered",
+                  "Rejected", "Ghosted", "Passed"]
 
 def init_db():
     conn = get_db()
@@ -184,7 +184,7 @@ def save_analysis(message, channel, analysis, usage):
     # Default pipeline status from the legitimacy score (the risk itself shows in
     # the score badge). Worth pursuing → Interested; flagged → Pass.
     legit = 100 - analysis.scam_likelihood_score
-    initial_status = "Pass" if legit < 34 else "Interested"  # Scam tier → Pass
+    initial_status = "Passed" if legit < 34 else "Interested"  # Scam tier → Passed
     conn = get_db()
     try:
         cur = conn.execute(

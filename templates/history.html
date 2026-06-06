@@ -83,10 +83,17 @@
     .st-Interested  {background:var(--accent-bg,#eef1f4);border-color:#b8cce0;color:var(--accent)}
     .st-Applied     {background:#e0e7ff;border-color:#c7d2fe;color:#4338ca}
     .st-Interviewing{background:#ede9fe;border-color:#ddd6fe;color:#6d28d9}
-    .st-Offer       {background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+    .st-Offered     {background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
     .st-Rejected    {background:var(--red-bg);border-color:var(--red-bd);color:var(--red)}
     .st-Ghosted     {background:#e2e8f0;border-color:#cbd5e1;color:#64748b}
-    .st-Pass{background:#f1f5f9;border-color:#cbd5e1;color:#475569}
+    .st-Passed      {background:#f1f5f9;border-color:#cbd5e1;color:#475569}
+    /* Activity dot — live (green) / waiting (yellow) / closed (grey) */
+    .adot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;
+          vertical-align:middle;flex-shrink:0}
+    .adot-live{background:#16a34a;box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:pulse 1.8s infinite}
+    .adot-wait{background:#eab308}
+    .adot-closed{background:#cbd5e1}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%{box-shadow:0 0 0 5px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
 
     /* Cells */
     .cell-main{font-weight:600;font-size:.86rem;color:var(--text)}
@@ -285,7 +292,7 @@
         <div class="fld"><label>Status</label>
           <select id="ajStatus">
             <option selected>Interested</option><option>Applied</option><option>Interviewing</option>
-            <option>Offer</option><option>Rejected</option><option>Ghosted</option><option>Pass</option>
+            <option>Offered</option><option>Rejected</option><option>Ghosted</option><option>Passed</option>
           </select>
         </div>
       </div>
@@ -328,7 +335,7 @@
       const res  = await fetch('/api/history?limit=500');
       const data = await res.json();
       allItems   = data.items;
-      STATUSES   = data.statuses || ["Interested","Applied","Interviewing","Offer","Rejected","Ghosted"];
+      STATUSES   = data.statuses || ["Interested","Applied","Interviewing","Offered","Rejected","Ghosted","Passed"];
       document.getElementById('totalCount').textContent = data.total + (data.total===1?' entry':' entries');
       buildFilters();
       renderTable();
@@ -360,6 +367,14 @@
     btn.classList.add('active');
     renderTable();
   }
+
+  // Activity state per status: live (green) / waiting (yellow) / closed (grey)
+  const ACTIVITY = {
+    Interested:'wait', Applied:'wait',
+    Interviewing:'live', Offered:'live',
+    Rejected:'closed', Ghosted:'closed', Passed:'closed'
+  };
+  const ACTIVITY_TITLE = {live:'Active — in progress', wait:'Waiting to hear back', closed:'Closed'};
 
   // Legitimacy (high = legit) → 3 tiers: Legit 75-100 / Dubious 50-74 / Scam 0-49
   function legitTier(legit){return legit>=75?'go':legit>=50?'watch':'away';}
@@ -473,7 +488,7 @@
       html += `
         <tr class="trow">
           <td>${badge}</td>
-          <td><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
+          <td style="white-space:nowrap"><span class="adot adot-${ACTIVITY[item.status]||'closed'}" title="${ACTIVITY_TITLE[ACTIVITY[item.status]]||''}"></span><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
           <td style="cursor:pointer" onclick="openEntry(${item.id})" title="Open & edit"><div class="cell-main cell-link">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
           <td class="hide-sm"><input class="note-input" style="min-width:80px" value="${(item.salary||'').replace(/"/g,'&quot;')}" placeholder="—" onchange="saveField(${item.id},'salary',this.value)" /></td>
@@ -490,6 +505,9 @@
 
   async function changeStatus(id, status, sel) {
     sel.className = 'status-sel st-' + status.replace(/ /g,'-');
+    const dot = sel.parentElement.querySelector('.adot');
+    if (dot) { dot.className = 'adot adot-' + (ACTIVITY[status]||'closed');
+               dot.title = ACTIVITY_TITLE[ACTIVITY[status]] || ''; }
     const item = allItems.find(i=>i.id===id); if(item) item.status = status;
     try {
       await fetch('/api/status',{method:'POST',headers:{'Content-Type':'application/json'},
