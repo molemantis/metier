@@ -91,7 +91,7 @@
     .st-Ghosted     {background:#e2e8f0;border-color:#cbd5e1;color:#64748b}
     .st-Passed      {background:#f1f5f9;border-color:#cbd5e1;color:#475569}
     /* Activity dot — live (green) / waiting (yellow) / closed (grey) */
-    .adot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;
+    .adot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:7px;
           vertical-align:middle;flex-shrink:0}
     .adot-live{background:#16a34a;box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:pulse 1.8s infinite}
     .adot-wait{background:#eab308}
@@ -491,7 +491,7 @@
       html += `
         <tr class="trow">
           <td>${badge}</td>
-          <td style="white-space:nowrap"><span class="adot adot-${ACTIVITY[item.status]||'closed'}" title="${ACTIVITY_TITLE[ACTIVITY[item.status]]||''}"></span><span class="stwrap st-${(item.status||'').replace(/ /g,'-')}"><span class="sttext">${item.status}</span><span class="stcaret">▾</span><select class="stsel" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></span></td>
+          <td style="white-space:nowrap"><span class="stwrap st-${(item.status||'').replace(/ /g,'-')}"><span class="sttext">${item.status}</span><span class="stcaret">▾</span><select class="stsel" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></span><span class="adot adot-${ACTIVITY[item.status]||'closed'}" title="${ACTIVITY_TITLE[ACTIVITY[item.status]]||''}"></span></td>
           <td style="cursor:pointer" onclick="openEntry(${item.id})" title="Open & edit"><div class="cell-main cell-link">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
           <td class="hide-sm"><input class="note-input" style="min-width:80px" value="${(item.salary||'').replace(/"/g,'&quot;')}" placeholder="—" onchange="saveField(${item.id},'salary',this.value)" /></td>
