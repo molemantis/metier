@@ -109,11 +109,18 @@
     /* Cells */
     .cell-main{font-weight:600;font-size:.86rem;color:var(--text)}
     .cell-link:hover{color:var(--accent);text-decoration:underline}
-    /* Star rating */
-    .stars{display:inline-flex;gap:1px}
-    .star{color:#cbd5e1;font-size:1rem;cursor:pointer;transition:color .1s;line-height:1}
-    .star.on{color:#f59e0b}
-    .star:hover{color:#f59e0b}
+    /* Tier rating (TierMaker-style S/A/B/C/D) */
+    .tiers{display:inline-flex;gap:3px}
+    .tierbtn{font-size:.72rem;font-weight:800;width:20px;height:20px;display:inline-flex;
+             align-items:center;justify-content:center;border-radius:5px;cursor:pointer;
+             color:#2b2b2b;opacity:.38;border:1.5px solid transparent;transition:all .12s}
+    .tierbtn:hover{opacity:.85}
+    .tierbtn.on{opacity:1;border-color:rgba(0,0,0,.4);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+    .tier-S{background:#ff7f7f}
+    .tier-A{background:#ffbf7f}
+    .tier-B{background:#ffff7f}
+    .tier-C{background:#7fff7f}
+    .tier-D{background:#7fbfff}
     .cell-sub {font-size:.74rem;color:var(--muted);margin-top:2px}
     .cell-dim {font-size:.78rem;color:var(--muted)}
     .dash{color:#cbd5e1}
@@ -363,7 +370,7 @@
   // ── Sorting ───────────────────────────────────────────────────────────────────
   const COLUMNS = [
     {key:'score',  label:'Score',  numeric:true,  style:'width:66px;text-align:center', cls:'', title:'Legitimacy score — higher is safer'},
-    {key:'rating', label:'Rating', numeric:true,  style:'width:92px;text-align:center', cls:'', title:'Your rating'},
+    {key:'rating', label:'Tier',   numeric:true,  style:'width:108px;text-align:center', cls:'', title:'Your tier — S (best) to D'},
     {key:'status', label:'Status', numeric:true,  style:'width:118px', cls:''},
     {key:'job',    label:'Job',    numeric:false, style:'', cls:''},
     {key:'company',label:'Company',numeric:false, style:'', cls:'hide-sm'},
@@ -406,19 +413,20 @@
   }
 
   // Star rating (1-5). Click a star to set; click the current value to clear.
-  function starsHtml(id, rating){
+  const TIERS = [['S',5],['A',4],['B',3],['C',2],['D',1]];   // label -> stored value
+  function tierHtml(id, rating){
     rating = rating || 0;
-    let s = '<div class="stars">';
-    for (let n=1;n<=5;n++) s += `<span class="star ${n<=rating?'on':''}" onclick="saveRating(${id},${n})" title="${n} of 5">★</span>`;
+    let s = '<div class="tiers">';
+    for (const [L,v] of TIERS) s += `<span class="tierbtn tier-${L} ${rating===v?'on':''}" onclick="saveTier(${id},${v})" title="Tier ${L}">${L}</span>`;
     return s + '</div>';
   }
-  async function saveRating(id, n){
+  async function saveTier(id, v){
     const item = allItems.find(i=>i.id===id); if(!item) return;
-    const rating = (item.rating===n) ? 0 : n;   // click current star again to clear
+    const rating = (item.rating===v) ? 0 : v;   // click current tier again to clear
     item.rating = rating;
     renderTable();
     try { await fetch(`/api/entry/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rating})}); }
-    catch { showToast('Failed to save rating'); }
+    catch { showToast('Failed to save tier'); }
   }
 
   function renderTable() {
@@ -487,7 +495,7 @@
       html += `
         <tr class="trow">
           <td style="text-align:center">${badge}</td>
-          <td style="text-align:center">${starsHtml(item.id, item.rating)}</td>
+          <td style="text-align:center">${tierHtml(item.id, item.rating)}</td>
           <td><select class="status-sel st-${(item.status||'').replace(/ /g,'-')}" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></td>
           <td style="cursor:pointer" onclick="openEntry(${item.id})" title="Open & edit"><div class="cell-main cell-link">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
@@ -574,15 +582,15 @@
   // ── Entry modal (edit any field + see the analysis) ───────────────────────────
   function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
   let modalRating = 0;
-  function modalStarsHtml(rating){
-    let s='<div class="stars" style="font-size:1.4rem;gap:3px">';
-    for(let n=1;n<=5;n++) s+=`<span class="star ${n<=rating?'on':''}" data-n="${n}" onclick="setModalStar(${n})">★</span>`;
+  function modalTierHtml(rating){
+    let s='<div class="tiers" style="gap:5px">';
+    for(const [L,v] of TIERS) s+=`<span class="tierbtn tier-${L} ${rating===v?'on':''}" data-v="${v}" onclick="setModalTier(${v})" style="width:26px;height:26px;font-size:.85rem">${L}</span>`;
     return s+'</div>';
   }
-  function setModalStar(n){
-    modalRating = (modalRating===n) ? 0 : n;       // click current star to clear
-    document.querySelectorAll('#efStars .star').forEach(el=>{
-      el.classList.toggle('on', Number(el.dataset.n) <= modalRating);
+  function setModalTier(v){
+    modalRating = (modalRating===v) ? 0 : v;       // click current tier to clear
+    document.querySelectorAll('#efTier .tierbtn').forEach(el=>{
+      el.classList.toggle('on', Number(el.dataset.v) === modalRating);
     });
   }
 
@@ -611,8 +619,8 @@
           <div class="fld"><label>Status</label><select id="efStatus">${opts}</select></div>
         </div>
         ${isManual ? `<div class="fld-row" style="margin-top:8px">${legitField}
-          <div class="fld"><label>Your rating</label><div id="efStars">${modalStarsHtml(modalRating)}</div></div>
-        </div>` : `<div class="fld" style="margin-top:8px"><label>Your rating</label><div id="efStars">${modalStarsHtml(modalRating)}</div></div>`}
+          <div class="fld"><label>Your tier</label><div id="efTier">${modalTierHtml(modalRating)}</div></div>
+        </div>` : `<div class="fld" style="margin-top:8px"><label>Your tier</label><div id="efTier">${modalTierHtml(modalRating)}</div></div>`}
         <div class="fld-row" style="margin-top:8px">
           <div class="fld"><label>Salary</label><input type="text" id="efSalary" value="${esc(item.salary)}" placeholder="e.g. $120k–140k"/></div>
           <div class="fld"><label>Link</label><input type="url" id="efUrl" value="${esc(item.url)}"/></div>
