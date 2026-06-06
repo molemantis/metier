@@ -67,6 +67,8 @@
     .tbl{width:100%;border-collapse:separate;border-spacing:0 7px}
     .tbl thead th{font-size:.69rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
                   color:var(--muted);padding:0 12px 4px;text-align:left;white-space:nowrap}
+    .th-sort{cursor:pointer;user-select:none;transition:color .12s}
+    .th-sort:hover{color:var(--accent)}
     .trow{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);transition:transform .1s}
     .trow:hover{transform:translateY(-1px)}
     .trow td{padding:12px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);vertical-align:middle}
@@ -356,6 +358,52 @@
   // Legitimacy score (high = legit). Color + number both come from this — never disagree.
   function legitTier(legit){return legit>=75?'go':legit>=50?'watch':legit>=25?'concern':'away';}
   function legitWordTier(w){return {Legit:'go',Caution:'watch',Dubious:'concern',Scam:'away'}[w]||'none';}
+  function legitWordNum(w){return {Legit:88,Caution:62,Dubious:37,Scam:12}[w] ?? -1;}
+
+  // ── Sorting ───────────────────────────────────────────────────────────────────
+  const COLUMNS = [
+    {key:'score',  label:'Score',  numeric:true,  style:'width:66px;text-align:center', cls:'', title:'Legitimacy score — higher is safer'},
+    {key:'rating', label:'Rating', numeric:true,  style:'width:92px;text-align:center', cls:'', title:'Your rating'},
+    {key:'status', label:'Status', numeric:true,  style:'width:118px', cls:''},
+    {key:'job',    label:'Job',    numeric:false, style:'', cls:''},
+    {key:'company',label:'Company',numeric:false, style:'', cls:'hide-sm'},
+    {key:'salary', label:'Salary', numeric:true,  style:'', cls:'hide-sm'},
+    {key:'source', label:'Source', numeric:false, style:'', cls:'hide-sm'},
+    {key:'notes',  label:'Notes',  numeric:false, style:'', cls:'hide-sm'},
+    {key:'date',   label:'Date',   numeric:true,  style:'', cls:'hide-sm'},
+  ];
+  let sortKey='date', sortDir='desc';
+
+  function salaryNum(s){
+    if(!s) return -1;
+    const m = String(s).replace(/,/g,'').match(/(\d+(?:\.\d+)?)\s*[kK]?/);
+    if(!m) return -1;
+    let n = parseFloat(m[1]);
+    if(/[kK]/.test(m[0])) n *= 1000;
+    return n;
+  }
+  function sortVal(item, key){
+    switch(key){
+      case 'score':  return item.entry_type==='manual'
+                       ? (item.manual_legit ? legitWordNum(item.manual_legit) : -1)
+                       : (100 - item.score);
+      case 'rating': return item.rating || 0;
+      case 'status': return STATUSES.indexOf(item.status);
+      case 'job':    return (item.job_title||'').toLowerCase();
+      case 'company':return (item.job_company||'').toLowerCase();
+      case 'salary': return salaryNum(item.salary);
+      case 'source': return (item.source||item.recruiter_company||'').toLowerCase();
+      case 'notes':  return (item.notes||'').toLowerCase();
+      case 'date':   return item.created_at||'';
+      default:       return '';
+    }
+  }
+  function sortBy(key){
+    const col = COLUMNS.find(c=>c.key===key);
+    if(sortKey===key){ sortDir = (sortDir==='asc'?'desc':'asc'); }
+    else { sortKey=key; sortDir = (col && col.numeric) ? 'desc' : 'asc'; }  // numbers/date default high→low
+    renderTable();
+  }
 
   // Star rating (1-5). Click a star to set; click the current value to clear.
   function starsHtml(id, rating){
@@ -389,18 +437,22 @@
       return;
     }
 
-    let html = `<table class="tbl"><thead><tr>
-        <th style="width:66px;text-align:center" title="Legitimacy score — higher is safer (green = go, red = scam)">Score</th>
-        <th style="width:92px;text-align:center" title="Your rating — how much you want this / how it's going">Rating</th>
-        <th style="width:118px">Status</th>
-        <th>Job</th>
-        <th class="hide-sm">Company</th>
-        <th class="hide-sm">Salary</th>
-        <th class="hide-sm">Source</th>
-        <th class="hide-sm">Notes</th>
-        <th class="hide-sm">Date</th>
-        <th style="width:30px"></th>
-      </tr></thead><tbody>`;
+    // Sort the filtered items by the active column
+    items = items.slice().sort((a,b)=>{
+      let va=sortVal(a,sortKey), vb=sortVal(b,sortKey);
+      let cmp;
+      if(typeof va==='number' && typeof vb==='number') cmp = va-vb;
+      else cmp = String(va).localeCompare(String(vb));
+      return sortDir==='asc' ? cmp : -cmp;
+    });
+
+    const ths = COLUMNS.map(c=>{
+      const arrow = sortKey===c.key ? (sortDir==='asc'?' ▲':' ▼') : '';
+      const title = c.title ? ` title="${c.title}"` : '';
+      return `<th class="th-sort ${c.cls}" style="${c.style}"${title} onclick="sortBy('${c.key}')">${c.label}${arrow}</th>`;
+    }).join('');
+
+    let html = `<table class="tbl"><thead><tr>${ths}<th style="width:30px"></th></tr></thead><tbody>`;
 
     items.forEach(item => {
       const date = new Date(item.created_at).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'});
