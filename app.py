@@ -209,10 +209,10 @@ def add_manual_job(title, company, source, url, status, notes, salary=""):
         cur = conn.execute(
             "INSERT INTO analyses "
             "(created_at,msg_hash,message,channel,score,label,result_json,"
-            " status,entry_type,manual_title,manual_company,manual_source,manual_url,notes,salary) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " status,entry_type,manual_title,manual_company,manual_source,manual_url,notes,salary,manual_legit) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (datetime.now(timezone.utc).isoformat(), "", "", source or "manual", 0, "",
-             "{}", status, "manual", title, company, source, url, notes, salary),
+             "{}", status, "manual", title, company, source, url, notes, salary, "Legit"),
         )
         conn.commit()
         return cur.lastrowid
