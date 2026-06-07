@@ -90,22 +90,26 @@
 
 <script>
   const QUESTIONS = [
-    { q: "Is this a direct hire, contract, or contract-to-hire position?",
+    { q: "Direct hire, contract, or contract-to-hire?",
       why: "Misrepresenting role type is common. Know what you're signing up for." },
-    { q: "What is the compensation range for this position?",
+    { q: "What's the compensation range?",
       why: "Unrealistically high numbers are a red flag. Refusing to share a range is too." },
-    { q: "Is the role remote, hybrid, or on-site — and based where?",
+    { q: "Remote, hybrid, or on-site — and where?",
       why: "Get it in writing. Some listings bait with “remote” then reveal an office requirement later." },
-    { q: "Who would I be reporting to in this role, and can you tell me about the team?",
-      why: "Real recruiters know the hiring manager. Vague answers mean the role may not exist." },
-    { q: "What does the interview process look like — steps, timeline, and who's involved?",
-      why: "Legitimate companies have a defined process. No process = no real job." },
-    { q: "Can you send me the direct link to this role on your company's careers page?",
+    { q: "Who is the hiring manager?",
+      why: "A real recruiter knows exactly who's hiring. A name they can't or won't share is a sign the role may not exist." },
+    { q: "Can you tell me about the team and its priorities?",
+      why: "A recruiter briefed by the company can describe the team, its work, and what matters right now. A resume harvester can't." },
+    { q: "Is this a new role or a backfill?",
+      why: "A briefed recruiter knows why the seat is open (growth, backfill, reorg). Vagueness means they don't really know the role." },
+    { q: "Can you send the careers-page link for this role?",
       why: "Ghost jobs have no listing. This one question filters most bad actors." },
-    { q: "How long has this role been open, and what happened with previous candidates?",
-      why: "Ghost jobs stay open indefinitely. Real recruiters can tell you why the role is open." },
-    { q: "Is there any cost to me at any point, for anything?",
-      why: "The answer should always be no. Any hesitation or yes is an immediate disqualifier." }
+    { q: "What does the interview process look like?",
+      why: "Legitimate companies have a defined process — steps, timeline, and who's involved. No process = no real job." },
+    { q: "Can you email me from your company domain?",
+      why: "A real recruiter names their firm and writes from a company address. A personal Gmail for a “corporate” role is a red flag." },
+    { q: "Can we do a quick video or phone call?",
+      why: "Impersonators using stolen or AI identities avoid being on camera. A live call confirms who you're dealing with." }
   ];
 
   function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
