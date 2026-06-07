@@ -91,7 +91,7 @@
     .st-Ghosted     {background:#e2e8f0;border-color:#cbd5e1;color:#64748b}
     .st-Passed      {background:#f1f5f9;border-color:#cbd5e1;color:#475569}
     /* Activity dot — live (green) / waiting (yellow) / closed (grey) */
-    .adot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:7px;
+    .adot{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0;
           vertical-align:middle;flex-shrink:0}
     .adot-live{background:#16a34a;box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:pulse 1.8s infinite}
     .adot-wait{background:#eab308}
@@ -101,17 +101,14 @@
     /* Cells */
     .cell-main{font-weight:600;font-size:.86rem;color:var(--text)}
     .cell-link:hover{color:var(--accent);text-decoration:underline}
-    /* Verdict — icon in a colored circle (👍 Legit / 🤨 Dubious / 👎 Scam) */
-    .sico{display:inline-flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;transition:transform .12s}
-    .sico:hover{transform:scale(1.08)}
-    .sico-c{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;
-            justify-content:center;font-size:1.1rem;border:1.5px solid;line-height:1}
-    .sico-c.go    {background:var(--go-bg);border-color:var(--go-bd)}
-    .sico-c.watch {background:var(--watch-bg);border-color:var(--watch-bd)}
-    .sico-c.away  {background:var(--away-bg);border-color:var(--away-bd)}
-    .sico-c.none  {background:#f1f5f9;border-color:#e2e8f0;color:#94a3b8;font-size:1rem}
-    .sico-l{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-    .sico-l.go{color:var(--go)}.sico-l.watch{color:var(--watch)}.sico-l.away{color:var(--away)}
+    /* Verdict — colored word pill (Legit / Dubious / Scam), matches the status pill */
+    .vpill{display:inline-flex;align-items:center;font-size:.76rem;font-weight:700;border:1.5px solid;
+           border-radius:20px;padding:4px 11px;cursor:pointer;white-space:nowrap;transition:transform .12s}
+    .vpill:hover{transform:translateY(-1px)}
+    .v-go   {background:var(--go-bg);border-color:var(--go-bd);color:var(--go)}
+    .v-watch{background:var(--watch-bg);border-color:var(--watch-bd);color:var(--watch)}
+    .v-away {background:var(--away-bg);border-color:var(--away-bd);color:var(--away)}
+    .v-none {background:#f8fafc;border-color:#e2e8f0;color:#cbd5e1}
     .cell-sub {font-size:.74rem;color:var(--muted);margin-top:2px}
     .cell-dim {font-size:.78rem;color:var(--muted)}
     .dash{color:#cbd5e1}
@@ -389,7 +386,7 @@
   // ── Sorting ───────────────────────────────────────────────────────────────────
   const COLUMNS = [
     {key:'score',  label:'Verdict', numeric:true,  style:'width:88px', cls:'', title:'Legitimacy verdict — Legit, Dubious or Scam'},
-    {key:'status', label:'Status', numeric:true,  style:'width:118px', cls:''},
+    {key:'status', label:'Status', numeric:true,  style:'width:118px;text-align:center', cls:''},
     {key:'job',    label:'Title',  numeric:false, style:'', cls:''},
     {key:'company',label:'Company',numeric:false, style:'', cls:'hide-sm'},
     {key:'salary', label:'Salary', numeric:true,  style:'', cls:'hide-sm'},
@@ -466,20 +463,18 @@
       const date = new Date(item.created_at).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'});
       const opts = STATUSES.map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('');
 
-      // Score — icon in a colored circle; click opens the entry (edit + analysis).
+      // Verdict — colored word pill (Legit / Dubious / Scam); click opens the entry (edit + analysis).
       let badge;
       if (item.entry_type==='manual' || item.score===null) {
         if (item.manual_legit) {                    // user set their own legitimacy read
           const t = legitWordTier(item.manual_legit);
-          badge = `<span class="sico" onclick="openEntry(${item.id})" title="Your read: ${item.manual_legit}">
-                     <span class="sico-c ${t}">${SICON[t]||''}</span><span class="sico-l ${t}">${item.manual_legit}</span></span>`;
+          badge = `<span class="vpill v-${t}" onclick="openEntry(${item.id})" title="Your read — click to edit">${item.manual_legit}</span>`;
         } else {
-          badge = `<span class="sico" onclick="openEntry(${item.id})" title="Set a score"><span class="sico-c none">–</span></span>`;
+          badge = `<span class="vpill v-none" onclick="openEntry(${item.id})" title="Not vetted — click to add your read">—</span>`;
         }
       } else {
         const legit = 100 - item.score; const t = legitTier(legit); const word = legitWord(legit);
-        badge = `<span class="sico" onclick="openEntry(${item.id})" title="${word} — see why">
-                   <span class="sico-c ${t}">${SICON[t]}</span><span class="sico-l ${t}">${word}</span></span>`;
+        badge = `<span class="vpill v-${t}" onclick="openEntry(${item.id})" title="${word} — click to see why">${word}</span>`;
       }
 
       const jobTitle = item.job_title || '<span class="dash">Untitled role</span>';
@@ -491,7 +486,7 @@
       html += `
         <tr class="trow">
           <td>${badge}</td>
-          <td style="white-space:nowrap"><span class="stwrap st-${(item.status||'').replace(/ /g,'-')}"><span class="sttext">${item.status}</span><span class="stcaret">▾</span><select class="stsel" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></span><span class="adot adot-${ACTIVITY[item.status]||'closed'}" title="${ACTIVITY_TITLE[ACTIVITY[item.status]]||''}"></span></td>
+          <td style="white-space:nowrap"><span class="stwrap st-${(item.status||'').replace(/ /g,'-')}"><span class="adot adot-${ACTIVITY[item.status]||'closed'}" title="${ACTIVITY_TITLE[ACTIVITY[item.status]]||''}"></span><span class="sttext">${item.status}</span><span class="stcaret">▾</span><select class="stsel" onchange="changeStatus(${item.id},this.value,this)">${opts}</select></span></td>
           <td style="cursor:pointer" onclick="openEntry(${item.id})" title="Open & edit"><div class="cell-main cell-link">${jobTitle}</div>${recOrSrc}</td>
           <td class="hide-sm"><div class="cell-dim">${item.job_company||'<span class="dash">—</span>'}</div></td>
           <td class="hide-sm"><input class="note-input" style="min-width:80px" value="${(item.salary||'').replace(/"/g,'&quot;')}" placeholder="—" onchange="saveField(${item.id},'salary',this.value)" /></td>
