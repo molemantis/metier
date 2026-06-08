@@ -316,6 +316,14 @@ def find_cross_references(analysis, exclude_id):
 
 # ── Known/repeat-contact correlation ────────────────────────────────────────────
 _STRONG_MATCH_TYPES = {"email", "phone", "domain", "linkedin"}  # weak: name, company (collide)
+# Free/public email providers — the domain is shared by millions, so it is NOT a unique
+# identifier. Match these only on the full email address, never on the bare domain.
+FREE_EMAIL_DOMAINS = {
+    "gmail.com", "googlemail.com", "yahoo.com", "ymail.com", "yahoo.co.uk", "outlook.com",
+    "hotmail.com", "hotmail.co.uk", "live.com", "msn.com", "icloud.com", "me.com", "mac.com",
+    "aol.com", "proton.me", "protonmail.com", "pm.me", "gmx.com", "gmx.net", "mail.com",
+    "zoho.com", "yandex.com", "tutanota.com", "fastmail.com",
+}
 
 def _verdict_word(score):
     legit = 100 - (score or 0)
@@ -353,7 +361,11 @@ def prior_history_block(matches):
 def apply_known_scam_floor(analysis, cross_refs):
     """Hard rule: a strong-identifier match to a prior Scam-tier entry forces a Scam verdict."""
     for ref in cross_refs:
-        if ref.get("match_type") in _STRONG_MATCH_TYPES and (100 - (ref.get("score") or 0)) < 50:
+        mt, mv = ref.get("match_type"), (ref.get("match_value") or "")
+        # A shared free-email domain (gmail.com, etc.) is NOT a unique contact — skip it.
+        if mt == "domain" and _norm(mv) in FREE_EMAIL_DOMAINS:
+            continue
+        if mt in _STRONG_MATCH_TYPES and (100 - (ref.get("score") or 0)) < 50:
             if analysis.scam_likelihood_score < 90:
                 analysis.scam_likelihood_score = 90
                 analysis.scam_likelihood_label = "Very High"
@@ -659,6 +671,11 @@ These are some of the strongest, easiest-to-verify scam signals. Flag them by na
 - **Senior title at a named company + free personal email**: e.g. "VP Talent Acquisition at \
   Allstate" writing from @gmail.com / @yahoo.com / @outlook.com. A real corporate executive uses \
   the company domain. This combination is almost never legitimate.
+- **Company name stuffed into a free-email address**: addresses like allstate.recruiting@gmail.com, \
+  careers.stripe@outlook.com, or hr-google@yahoo.com put the company name in the LOCAL part (before \
+  the @) to look official. The actual domain is still gmail/yahoo/outlook, so it is NOT a corporate \
+  address — this is a common impersonation tactic. Judge legitimacy by the DOMAIN after the @, never \
+  by words before it. Treat company-name-in-a-free-inbox as a red flag, not a corporate green light.
 - **Self-contradicting identity**: the title/header claims a senior role at a big company, but the \
   bio or body says something incompatible (e.g. "VP at Allstate" up top, "independent contract \
   recruiter" in the bio). Inconsistent identity = treat as impersonation.
@@ -964,7 +981,8 @@ def analyze_route():
     domain_findings = run_domain_checks(quick["domains"])
 
     # Cross-reference this sender against the user's prior entries (known/repeat contacts)
-    prior_norm = {_norm(e) for e in quick["emails"]} | {_norm(d) for d in quick["domains"]}
+    prior_norm = {_norm(e) for e in quick["emails"]} \
+               | {_norm(d) for d in quick["domains"] if _norm(d) not in FREE_EMAIL_DOMAINS}
     if channel == "sms" and contact_info:
         pn = _norm_phone(contact_info)
         if len(pn) >= 7: prior_norm.add(pn)
