@@ -314,6 +314,56 @@ def find_cross_references(analysis, exclude_id):
     finally:
         conn.close()
 
+# ── Known/repeat-contact correlation ────────────────────────────────────────────
+_STRONG_MATCH_TYPES = {"email", "phone", "domain", "linkedin"}  # weak: name, company (collide)
+
+def _verdict_word(score):
+    legit = 100 - (score or 0)
+    return "Scam" if legit < 50 else "Dubious" if legit < 75 else "Legit"
+
+def _prior_matches(normed, exclude_id=-1):
+    """Prior analyses sharing any normalized identifier in `normed` (pre-call regex lookup)."""
+    normed = {n for n in normed if n}
+    if not normed: return []
+    ph = ",".join("?" * len(normed))
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            f"SELECT DISTINCT a.id,a.created_at,a.score,i.type AS match_type,i.value AS match_value "
+            f"FROM analyses a JOIN identifiers i ON i.analysis_id=a.id "
+            f"WHERE i.normalized IN ({ph}) AND a.id!=? ORDER BY a.score DESC,a.created_at DESC LIMIT 10",
+            list(normed) + [exclude_id],
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+def prior_history_block(matches):
+    """Context block injected into the prompt so the model knows this is a repeat contact."""
+    flagged = [m for m in matches if (100 - (m["score"] or 0)) < 75]  # prior Scam or Dubious
+    if not flagged: return ""
+    lines = ["\n## ⚠ PRIOR HISTORY — this contact matches earlier entries in the user's own records"]
+    for m in flagged[:5]:
+        lines.append(f"- {m['match_type']} {m['match_value']} was already scored "
+                     f"**{_verdict_word(m['score'])}** on {str(m['created_at'])[:10]}.")
+    lines.append("This is a KNOWN/REPEAT contact the user previously flagged. Carry that suspicion "
+                 "forward — a polite follow-up does NOT clear it. Do NOT score this message Legit.")
+    return "\n".join(lines)
+
+def apply_known_scam_floor(analysis, cross_refs):
+    """Hard rule: a strong-identifier match to a prior Scam-tier entry forces a Scam verdict."""
+    for ref in cross_refs:
+        if ref.get("match_type") in _STRONG_MATCH_TYPES and (100 - (ref.get("score") or 0)) < 50:
+            if analysis.scam_likelihood_score < 90:
+                analysis.scam_likelihood_score = 90
+                analysis.scam_likelihood_label = "Very High"
+            note = (f"Known scammer: this {ref.get('match_type')} ({ref.get('match_value')}) "
+                    f"matches a prior entry you flagged as Scam.")
+            if note not in analysis.red_flags:
+                analysis.red_flags.insert(0, note)
+            return True
+    return False
+
 # ── Auto-checks ────────────────────────────────────────────────────────────────
 
 def check_domain(domain: str) -> dict:
@@ -811,7 +861,7 @@ _ANALYSIS_SCHEMA = """\
 
 # ── Analysis ───────────────────────────────────────────────────────────────────
 
-def build_content(message, channel, sender_email, web_results, domain_findings, keyword_flags=None):
+def build_content(message, channel, sender_email, web_results, domain_findings, keyword_flags=None, prior_block=""):
     kf_text = ""
     if keyword_flags and keyword_flags.get("any"):
         kf_text = "\n## ⚠ Pre-screening Keyword Alerts (auto-detected)\n"
@@ -827,6 +877,7 @@ def build_content(message, channel, sender_email, web_results, domain_findings, 
     text = (
         f"Channel: {channel}\n"
         + (f"Sender email: {sender_email}\n" if sender_email else "")
+        + (prior_block + "\n" if prior_block else "")
         + kf_text
         + f"\n## Automated Domain Checks (RDAP age + DNS)\n{domain_findings}\n"
         + f"\n## Web Research\n{web_results}\n"
@@ -847,8 +898,8 @@ def _extract_json(text: str) -> str:
         raise ValueError(f"No JSON object found in response: {text[:300]}")
     return text[start:end+1]
 
-def analyze(message, channel, sender_email, web_results, domain_findings, keyword_flags=None):
-    user_text = build_content(message, channel, sender_email, web_results, domain_findings, keyword_flags)
+def analyze(message, channel, sender_email, web_results, domain_findings, keyword_flags=None, prior_block=""):
+    user_text = build_content(message, channel, sender_email, web_results, domain_findings, keyword_flags, prior_block)
     text, usage = call_llm(SYSTEM_PROMPT, user_text)
     return RecruiterAnalysis.model_validate_json(_extract_json(text)), usage
 
@@ -912,8 +963,17 @@ def analyze_route():
     quick           = _quick_extract(augmented, sender_email)
     domain_findings = run_domain_checks(quick["domains"])
 
+    # Cross-reference this sender against the user's prior entries (known/repeat contacts)
+    prior_norm = {_norm(e) for e in quick["emails"]} | {_norm(d) for d in quick["domains"]}
+    if channel == "sms" and contact_info:
+        pn = _norm_phone(contact_info)
+        if len(pn) >= 7: prior_norm.add(pn)
+    elif channel == "linkedin" and contact_info:
+        prior_norm.add(_norm(contact_info).rstrip("/"))
+    prior_block = prior_history_block(_prior_matches(prior_norm))
+
     try:
-        analysis, usage = analyze(augmented, channel, sender_email, web_results, domain_findings, keyword_flags)
+        analysis, usage = analyze(augmented, channel, sender_email, web_results, domain_findings, keyword_flags, prior_block)
     except ImportError:
         return jsonify({"error": "The 'openai' package is required for OpenAI/Grok. Run: pip install openai"}), 500
     except Exception as exc:
@@ -923,8 +983,10 @@ def analyze_route():
             return jsonify({"error": f"Invalid or missing API key for {prov}. Check your .env file."}), 401
         return jsonify({"error": f"{prov} API error: {exc}"}), 502
 
+    # Correlate against prior entries; a strong match to a known Scam forces a Scam verdict.
+    cross_refs = find_cross_references(analysis, -1)
+    apply_known_scam_floor(analysis, cross_refs)
     analysis_id = save_analysis(augmented, channel, analysis, usage)
-    cross_refs  = find_cross_references(analysis, analysis_id)
 
     result = analysis.model_dump()
     result["analysis_id"]       = analysis_id
