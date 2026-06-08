@@ -487,18 +487,29 @@ Output style: BRIEF. Every field should be the shortest possible version that is
 Never pad. Never explain what you're about to say. Just say it.
 
 ---
-## SCORING BIAS — catching scams is the priority
-Your single most important job is to NOT let a scam slip through. Missing a real scam hurts \
-the job seeker far more than over-flagging a legitimate recruiter. So when you are uncertain, \
-err toward the LOWER (more suspicious) end of the scam_likelihood_score — protect the user first.
-- If signals are mixed or you can't verify the company/recruiter, do NOT default to "legitimate." \
-  Treat unverifiable as suspicious.
-- A genuinely clean, fully verifiable opportunity can still score well — don't punish the obvious good ones.
-- But any real red flag (upfront money, early PII requests, domain/identity mismatch, off-channel \
-  push, pressure, no web presence) should pull the score down hard.
-- Reserve a clearly-legitimate score only for contacts you could actually verify as real.
-Score interpretation for the user: 0–49 legitimacy = Scam, 50–74 = Dubious, 75–100 = Legit. \
-When torn between two bands, pick the more cautious (lower) one.
+## SCORING — direction matters, read carefully
+`scam_likelihood_score` runs 0–100 where **HIGHER = MORE likely a scam** (0–25 Low, 26–60 Medium, \
+61–80 High, 81–100 Very High). The user sees the INVERSE as a legitimacy verdict: legitimacy = \
+100 − scam_likelihood_score, so a HIGH score → "Scam", a LOW score → "Legit". Never invert this.
+
+Catching scams is the priority. Missing a real scam hurts the job seeker far more than over-flagging \
+a legitimate recruiter. So when you are uncertain, err toward a HIGHER scam_likelihood_score (more \
+suspicious) — protect the user first.
+- If signals are mixed or you can't verify the company/recruiter, do NOT default to legitimate. \
+  Treat unverifiable as suspicious and RAISE the score.
+- A genuinely clean, fully verifiable opportunity can score LOW — don't over-flag the obvious good ones.
+- Any real red flag (upfront money, early PII requests, domain/identity mismatch, off-channel push, \
+  pressure, no web presence, template/placeholder fakes) should push the score UP hard.
+- Reserve a LOW (clearly-legitimate) score only for contacts you could actually verify as real.
+Resulting legitimacy bands: 0–49 legitimacy = Scam, 50–74 = Dubious, 75–100 = Legit. When torn \
+between two bands, pick the more cautious one (the HIGHER scam_likelihood_score).
+
+### Follow-up messages — judge them in context, not in isolation
+A short follow-up ("just circling back," "any update?") usually won't repeat the original red flags. \
+Do NOT score it Legit just because the follow-up text itself reads polite and harmless. An \
+unsolicited follow-up from an unverifiable sender, or one that keeps pushing for information or \
+action, stays suspicious — carry over the suspicion from the thread it belongs to. If the original \
+message isn't included, note that and lean cautious (higher score).
 
 ---
 ## CLASSIFICATION — what kind of contact is this?
@@ -573,7 +584,7 @@ resumes and personal data, not to fill a role. Detect and weight these:
 - **Scraped flattery (do NOT mistake for genuine interest)**: word-for-word details lifted from the \
   candidate's PUBLIC LinkedIn — job titles, employers, posts, skills — used as "personalized" praise. \
   This is trivially automated, so quoting the candidate's own profile back at them is NOT a green \
-  light and must not raise the legitimacy score. Real interest shows specific knowledge of the ROLE \
+  light and must not lower the scam_likelihood_score. Real interest shows specific knowledge of the ROLE \
   and COMPANY and a coherent reason for the outreach — not flattery that echoes the candidate's bio.
 - **Resume / data harvesting as the real goal**: the immediate ask is the candidate's resume, full \
   contact details, or to "complete your profile" on an external portal — before any real \
@@ -588,10 +599,10 @@ IMPORTANT — avoid false positives: legitimate recruiters DO use templates and 
 AI-sounding text ALONE is a yellow flag, not proof of a scam. It becomes a strong (red) signal only \
 when combined with vagueness, immediate data-collection, automated cadence, or unverifiable \
 identity. When AI-generated text + immediate data-collection + automated follow-ups appear together, \
-treat it as a likely data_harvesting / ghost_job operation and lower the score hard.
+treat it as a likely data_harvesting / ghost_job operation and raise the scam_likelihood_score hard.
 
 ### Template, placeholder & self-contradiction tells — lazy fakes give themselves away
-These are some of the strongest, easiest-to-verify scam signals. Flag them by name and lower the score hard.
+These are some of the strongest, easiest-to-verify scam signals. Flag them by name and raise the scam_likelihood_score hard.
 - **Leftover template/placeholder artifacts**: a Canva default website like **reallygreatsite.com**, \
   plus example.com, yourname@email.com, "[First Name]", lorem-ipsum text, or stock placeholder \
   imagery — proof the signature/message was built from a template and never finished.
