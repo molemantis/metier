@@ -8,7 +8,7 @@
 
 *Pronounced "met-yay" — from* métier*, your calling, your craft, your vocation.*
 
-- 🎯 **Legitimacy Score** (0–100) with a color-coded verdict
+- 🎯 **Clear verdict** — Legit, Dubious, or Scam — with the reasoning behind it
 - 🔍 **LinkedIn identity check** — does their background actually match who they claim to be?
 - 🏢 **Company intelligence** — who the company likely *actually* is
 - 💬 **Questions to send them** — tailored follow-ups that smoke out ghost jobs
@@ -16,6 +16,34 @@
 - 🔗 **Cross-reference** — flags if the same identity appeared in a previous analysis
 - 🌐 **Live web research** — searches for scam reports automatically
 - 📋 **Job tracker** — every vetted contact and self-found role in one pipeline, with status tracking
+
+---
+
+## See it in action
+
+> *Screenshots use sample data.*
+
+### 🔍 The Analyzer — paste a message, get a verdict
+
+Paste a recruiter email or DM and Métier returns a clear verdict (Legit / Dubious / Scam) with the red flags it found, what to do, tailored questions to send back, company intelligence, and live web-research findings.
+
+<p align="center"><img src="docs/screenshots/analyzer.png" alt="Métier Analyzer verdict" width="480" /></p>
+
+### 📋 Job Tracker — your whole pipeline in one place
+
+Every vetted contact and self-found role, with a legitimacy verdict, status, comp, and source at a glance.
+
+<p align="center"><img src="docs/screenshots/tracker.png" alt="Métier Job Tracker" width="820" /></p>
+
+### 🚩 Common Red Flags &nbsp;·&nbsp; ✏️ Questions to Ask
+
+Know the patterns Métier checks for, and the questions any real recruiter answers in seconds.
+
+<p align="center">
+  <img src="docs/screenshots/redflags.png" alt="Common Red Flags" width="380" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/questions.png" alt="Questions to Ask" width="380" />
+</p>
 
 ---
 

@@ -669,7 +669,7 @@ These are some of the strongest, easiest-to-verify scam signals. Flag them by na
   plus example.com, yourname@email.com, "[First Name]", lorem-ipsum text, or stock placeholder \
   imagery — proof the signature/message was built from a template and never finished.
 - **Senior title at a named company + free personal email**: e.g. "VP Talent Acquisition at \
-  Allstate" writing from @gmail.com / @yahoo.com / @outlook.com. A real corporate executive uses \
+  Brightwave Insurance" writing from @gmail.com / @yahoo.com / @outlook.com. A real corporate executive uses \
   the company domain. This combination is almost never legitimate.
 - **Company name stuffed into a free-email address**: addresses like allstate.recruiting@gmail.com, \
   careers.stripe@outlook.com, or hr-google@yahoo.com put the company name in the LOCAL part (before \
@@ -677,7 +677,7 @@ These are some of the strongest, easiest-to-verify scam signals. Flag them by na
   address — this is a common impersonation tactic. Judge legitimacy by the DOMAIN after the @, never \
   by words before it. Treat company-name-in-a-free-inbox as a red flag, not a corporate green light.
 - **Self-contradicting identity**: the title/header claims a senior role at a big company, but the \
-  bio or body says something incompatible (e.g. "VP at Allstate" up top, "independent contract \
+  bio or body says something incompatible (e.g. "VP at Brightwave Insurance" up top, "independent contract \
   recruiter" in the bio). Inconsistent identity = treat as impersonation.
 
 ### Communication concerns
