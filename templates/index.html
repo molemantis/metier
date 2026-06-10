@@ -275,6 +275,11 @@
           <span class="ht">From field, signature, anywhere — separate with a comma</span>
         </label>
         <input type="text" id="sEmail" placeholder="recruiter@company.com, other@domain.com"/>
+        <label class="fl" for="emailHeaders" style="margin-top:10px">
+          Raw email headers <span class="op">optional</span>
+          <span class="ht">Gmail: ⋮ → “Show original” — paste the headers for spoof checks (Reply-To, SPF/DKIM/DMARC)</span>
+        </label>
+        <textarea id="emailHeaders" style="min-height:64px;font-size:.78rem" placeholder="Delivered-To: … Authentication-Results: … From: … Reply-To: …"></textarea>
       </div>
 
       <!-- LinkedIn: profile URL -->
@@ -659,8 +664,10 @@
     hideErr(); setLoad(true,abtn,spin,btnTxt,'Researching + analyzing…');
     resEl.style.display='none';
     try{
+      const hdrEl=document.getElementById('emailHeaders');
+      const email_headers=(channel==='email'&&hdrEl)?(hdrEl.value.trim()||null):null;
       const r=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({message,channel,contact_info})});
+        body:JSON.stringify({message,channel,contact_info,email_headers})});
       const d=await r.json();
       if(!r.ok){showErr(d.error||'Something went wrong.');return;}
       renderResults(d);
@@ -728,7 +735,7 @@
 
   function resetForm(){
     resEl.style.display='none'; msgEl.value=''; ccEl.textContent='0 chars';
-    ['sEmail','linkedinUrl','phoneNum','otherSource'].forEach(id=>{
+    ['sEmail','linkedinUrl','phoneNum','otherSource','emailHeaders'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value='';
     });
     hideErr(); curAnalysisId=null;

@@ -5,3 +5,4 @@ flask>=3.0
 python-dotenv>=1.0
 ddgs>=0.1
 requests>=2.31
+dnspython>=2.4       # MX/SPF/DMARC checks on sender domains

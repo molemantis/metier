@@ -136,6 +136,173 @@ def _norm_phone(v): return re.sub(r"\D", "", v)
 PERSONAL_DOMAINS = {"gmail.com","yahoo.com","hotmail.com","outlook.com",
                     "icloud.com","aol.com","protonmail.com","me.com","live.com"}
 
+# Disposable/temporary inboxes — near-certain scam when used for recruiting outreach
+DISPOSABLE_DOMAINS = {
+    "mailinator.com","guerrillamail.com","10minutemail.com","temp-mail.org","tempmail.com",
+    "throwawaymail.com","yopmail.com","getnada.com","maildrop.cc","sharklasers.com",
+    "trashmail.com","mohmal.com","emailondeck.com","mintemail.com","dispostable.com",
+    "fakeinbox.com","mailnesia.com","tempinbox.com","spamgourmet.com","mytemp.email",
+}
+
+# Link intelligence — shorteners hide destinations; form services are not hiring portals
+URL_SHORTENERS = {"bit.ly","tinyurl.com","t.co","goo.gl","ow.ly","is.gd","buff.ly",
+                  "rebrand.ly","cutt.ly","shorturl.at","rb.gy","tiny.cc"}
+FORM_SERVICES  = {"forms.gle","forms.office.com","typeform.com","jotform.com","tally.so",
+                  "surveymonkey.com","wufoo.com","cognitoforms.com","formstack.com","airtable.com"}
+# Hosts we never run age checks on (well-known infrastructure, not evidence either way)
+SKIP_LINK_HOSTS = {"linkedin.com","lnkd.in","calendly.com","zoom.us","google.com",
+                   "docs.google.com","meet.google.com","teams.microsoft.com","github.com",
+                   "x.com","twitter.com","youtube.com","indeed.com","ziprecruiter.com","glassdoor.com"}
+
+def _host_matches(host, ref):
+    return host == ref or host.endswith("." + ref)
+
+def _ats_info(host, path):
+    """Identify a real ATS link and pull the company slug so it can be checked
+    against the claimed employer. Returns (ats_name, slug) or None."""
+    seg = lambda: (path.strip("/").split("/") or [""])[0]
+    if _host_matches(host, "greenhouse.io")        and seg(): return ("Greenhouse", seg())
+    if _host_matches(host, "jobs.lever.co")        and seg(): return ("Lever", seg())
+    if _host_matches(host, "jobs.ashbyhq.com")     and seg(): return ("Ashby", seg())
+    if _host_matches(host, "apply.workable.com")   and seg(): return ("Workable", seg())
+    if _host_matches(host, "jobs.smartrecruiters.com") and seg(): return ("SmartRecruiters", seg())
+    first = host.split(".")[0]
+    if host.endswith(".myworkdayjobs.com"): return ("Workday", first)
+    if host.endswith(".recruitee.com"):     return ("Recruitee", first)
+    if host.endswith(".breezy.hr"):         return ("Breezy", first)
+    if host.endswith(".bamboohr.com"):      return ("BambooHR", first)
+    if host.endswith(".icims.com"):         return ("iCIMS", first)
+    return None
+
+_URL_RE = re.compile(r"""https?://[^\s<>"')\]]+|\bwww\.[A-Za-z0-9.-]+\.[A-Za-z]{2,}[^\s<>"')\]]*""")
+
+def _extract_urls(text):
+    return list(dict.fromkeys(u.rstrip(".,;:!?") for u in _URL_RE.findall(text or "")))
+
+def _url_host_path(url):
+    if url.startswith("www."): url = "http://" + url
+    try:
+        from urllib.parse import urlparse
+        p = urlparse(url)
+        return (p.hostname or "").lower(), p.path or ""
+    except Exception:
+        return "", ""
+
+_LEET = str.maketrans("0135478", "oleastb")
+_HIRING_WORDS = r"(careers?|jobs?|hiring|recruit(?:ing|ment)?|talent|apply|hr)"
+
+def _lookalike_notes(host, message):
+    """Deterministic lookalike tells for a domain: punycode, hiring-word bolt-ons,
+    and digit-substitution of a brand named in plain letters elsewhere in the message."""
+    notes = []
+    if "xn--" in host:
+        notes.append("⚠ PUNYCODE/HOMOGLYPH DOMAIN — characters disguised to imitate another domain")
+    labels = host.split(".")
+    label = labels[-2] if len(labels) >= 2 else labels[0]
+    if "-" in label and re.search(rf"(^|-){_HIRING_WORDS}(-|$)", label):
+        notes.append("⚠ hiring word bolted onto the domain — real companies host careers on their main domain")
+    _LEET_I = str.maketrans("0135478", "oieastb")   # leet "1" reads as both "l" and "i"
+    for part in label.split("-"):
+        if not any(ch.isdigit() for ch in part): continue
+        for plain in {part.translate(_LEET), part.translate(_LEET_I)}:
+            if plain != part and len(plain) > 3 and re.search(rf"\b{re.escape(plain)}\b", (message or ""), re.IGNORECASE):
+                notes.append(f"⚠ DIGIT-SUBSTITUTION LOOKALIKE of “{plain}” — classic impersonation registration")
+                break
+    return notes
+
+def run_url_checks(message: str) -> str:
+    """Deterministic link intelligence on every URL in the message body —
+    shorteners, form-service 'portals', ATS slugs, lookalikes, and age checks
+    on unfamiliar linked domains. Runs before the LLM so it scores on evidence."""
+    urls = _extract_urls(message)
+    if not urls: return ""
+    lines, seen, aged = ["\n## Link & URL Checks (automated)"], set(), 0
+    for url in urls[:8]:
+        host, path = _url_host_path(url)
+        if not host or host in seen: continue
+        seen.add(host)
+        notes = []
+        if any(_host_matches(host, s) for s in URL_SHORTENERS):
+            notes.append("⚠ URL SHORTENER — destination hidden; legitimate recruiters link directly")
+        if any(_host_matches(host, s) for s in FORM_SERVICES):
+            notes.append("⚠ generic form service used as an application path — real companies use their ATS or careers site")
+        ats = _ats_info(host, path)
+        if ats:
+            notes.append(f"ATS link ({ats[0]}), company slug “{ats[1]}” — verify the slug matches the claimed employer")
+        notes += _lookalike_notes(host, message)
+        skip = (any(_host_matches(host, s) for s in SKIP_LINK_HOSTS) or host in PERSONAL_DOMAINS
+                or any(_host_matches(host, s) for s in URL_SHORTENERS)
+                or any(_host_matches(host, s) for s in FORM_SERVICES))
+        if not ats and not skip and aged < 3:
+            reg = ".".join(host.split(".")[-2:])
+            info = check_domain(reg)
+            aged += 1
+            if info["age_days"] is not None and info["age_days"] < 180:
+                notes.append(f"⚠ linked domain registered only {info['age_days']} days ago ({info['reg_date']})")
+            elif info["age_days"] is not None:
+                notes.append(f"linked domain established ({info['reg_date']})")
+            if not info["resolves"]:
+                notes.append("⚠ linked domain does not resolve")
+        if notes:
+            lines.append(f"- {host}: " + "; ".join(notes))
+    return "\n".join(lines) if len(lines) > 1 else ""
+
+def check_email_dns(domain: str) -> dict:
+    """MX/SPF/DMARC presence — real corporate domains have mail infrastructure."""
+    out = {"mx": None, "spf": None, "dmarc": None}
+    try:
+        import dns.resolver
+    except ImportError:
+        return out
+    res = dns.resolver.Resolver(); res.timeout = res.lifetime = 4
+    try: out["mx"] = bool(res.resolve(domain, "MX"))
+    except Exception: out["mx"] = False
+    try:
+        txts = [b"".join(r.strings).decode(errors="replace") for r in res.resolve(domain, "TXT")]
+        out["spf"] = any(t.lower().startswith("v=spf1") for t in txts)
+    except Exception: out["spf"] = False
+    try:
+        txts = [b"".join(r.strings).decode(errors="replace") for r in res.resolve(f"_dmarc.{domain}", "TXT")]
+        out["dmarc"] = any("v=dmarc1" in t.lower() for t in txts)
+    except Exception: out["dmarc"] = False
+    return out
+
+def parse_email_headers(raw: str):
+    """Parse raw email headers the user pastes from 'Show original'.
+    Returns (findings_text, reply_to_email) — the strongest spoof evidence available."""
+    if not raw or not raw.strip(): return "", None
+    from email.parser import HeaderParser
+    try:
+        h = HeaderParser().parsestr(raw.strip())
+    except Exception:
+        return "", None
+    addr = lambda s: (re.search(r"[\w.+-]+@[\w.-]+", s or "") or [None]) and \
+                     (re.search(r"[\w.+-]+@[\w.-]+", s or "").group(0).lower()
+                      if re.search(r"[\w.+-]+@[\w.-]+", s or "") else None)
+    frm, rep, rp = addr(h.get("From")), addr(h.get("Reply-To")), addr(h.get("Return-Path"))
+    dom = lambda a: a.split("@")[1] if a and "@" in a else ""
+    lines = ["\n## Email Header Analysis (automated, from raw headers)"]
+    if frm: lines.append(f"From: {frm}")
+    if rep and frm and dom(rep) != dom(frm):
+        lines.append(f"⚠ REPLY-TO MISMATCH: From is @{dom(frm)} but replies are routed to {rep} — classic spoof/impersonation pattern")
+    elif rep:
+        lines.append(f"Reply-To: {rep} (matches From domain)")
+    if rp and frm and dom(rp) != dom(frm):
+        lines.append(f"⚠ Return-Path domain (@{dom(rp)}) differs from From domain (@{dom(frm)})")
+    auth = h.get("Authentication-Results", "")
+    if auth:
+        for mech in ("spf", "dkim", "dmarc"):
+            m = re.search(rf"{mech}=(\w+)", auth, re.IGNORECASE)
+            if m:
+                r = m.group(1).lower()
+                lines.append(f"{mech.upper()}: {'pass ✓' if r == 'pass' else '⚠ ' + r.upper() + ' — sender authentication failed or missing'}")
+    else:
+        lines.append("No Authentication-Results header found in the pasted headers")
+    bulk = h.get("X-Mailer", "") + " " + (h.get("List-Unsubscribe") or "")
+    if re.search(r"sendgrid|mailgun|mailchimp|brevo|sendinblue|campaign", bulk, re.IGNORECASE) or h.get("List-Unsubscribe"):
+        lines.append("Sent via bulk-mail infrastructure (mass outreach, not a personal note)")
+    return ("\n".join(lines) if len(lines) > 1 else ""), rep
+
 # ── Keyword pre-screening ──────────────────────────────────────────────────────
 # Runs instantly before the Claude call — catches obvious patterns for free.
 
@@ -411,14 +578,17 @@ def check_domain(domain: str) -> dict:
         result["error"] = str(e)
     return result
 
-def run_domain_checks(domains: list[str]) -> str:
-    """Automated domain intel (age via RDAP, DNS resolution) — runs BEFORE Claude
-    so the model factors it straight into the verdict. Returns a text block."""
+def run_domain_checks(domains: list[str], message: str = "") -> str:
+    """Automated domain intel (age via RDAP, DNS/MX/SPF/DMARC, lookalike tells) —
+    runs BEFORE Claude so the model factors it straight into the verdict."""
     lines = []
     for domain in domains[:3]:
-        if not domain or domain in PERSONAL_DOMAINS:
-            if domain in PERSONAL_DOMAINS:
-                lines.append(f"{domain}: personal email provider (gmail/yahoo/etc) — not a company domain")
+        if not domain: continue
+        if domain in DISPOSABLE_DOMAINS:
+            lines.append(f"{domain}: ⚠ DISPOSABLE/TEMPORARY EMAIL DOMAIN — burner inbox, near-certain scam")
+            continue
+        if domain in PERSONAL_DOMAINS:
+            lines.append(f"{domain}: personal email provider (gmail/yahoo/etc) — not a company domain")
             continue
         info = check_domain(domain)
         bits = [f"{domain}:"]
@@ -432,9 +602,18 @@ def run_domain_checks(domains: list[str]) -> str:
         else:
             bits.append("registration date unknown")
         bits.append("resolves (live)" if info["resolves"] else "⚠ DOES NOT RESOLVE — domain may not exist")
+        mail = check_email_dns(domain)
+        if mail["mx"] is not None:
+            if not mail["mx"]:
+                bits.append("⚠ NO MX RECORDS — this domain cannot receive email; a 'corporate' sender here is spoofed")
+            else:
+                missing = [k.upper() for k in ("spf", "dmarc") if mail[k] is False]
+                bits.append("mail infra: MX ✓ " + ("SPF/DMARC ✓" if not missing
+                            else "⚠ missing " + "/".join(missing) + " — unusual for a real company domain"))
+        for n in _lookalike_notes(domain, message):
+            bits.append(n)
         lines.append(" ".join(bits))
     return "\n".join(lines) if lines else "No company domains to check."
-    return checklist
 
 # ── Web research ───────────────────────────────────────────────────────────────
 
@@ -513,6 +692,13 @@ def run_web_research(message, sender_email, channel=None, contact_info=None):
 
             for cname in ids.get("names", [])[:1]:
                 _search(f'"{cname}" recruiter scam OR fraud', n=3)
+
+            # ── Careers-page scan — does the company's own site list jobs at all? ──
+            for domain in ids["domains"][:3]:
+                if domain not in PERSONAL_DOMAINS and domain not in DISPOSABLE_DOMAINS:
+                    lines.append(f"\n## Careers page scan: {domain}")
+                    _search(f"site:{domain} careers OR jobs", n=3)
+                    break
 
     except ImportError: return "Web research unavailable."
     except Exception as e: return f"Web research error: {e}"
@@ -749,6 +935,26 @@ The search results may include channel-specific scans, labeled with headers like
 Always name the specific finding in `web_presence.red_flags` so the job seeker sees the evidence.
 
 ---
+## AUTOMATED TECHNICAL EVIDENCE — how to weight it
+Each message arrives with automated technical blocks: domain age + DNS/MX/SPF/DMARC results, \
+Link & URL checks, an optional Email Header Analysis, and a careers-page scan. Treat these as \
+hard evidence, stronger than tone or wording:
+- **REPLY-TO MISMATCH, failed SPF/DKIM/DMARC, or a disposable email domain** → near-certain \
+  spoof or scam. Score very high and say exactly which check failed.
+- **A claimed corporate domain with no MX records or missing SPF/DMARC** → strong red flag; \
+  real companies have mail infrastructure.
+- **URL shorteners or generic form services (Google Forms, Typeform, etc.) as the application \
+  path** → strong red flag; nobody hires through a survey form.
+- **Punycode, digit-substitution lookalikes, or hiring words bolted onto a domain \
+  (acme-careers.net)** → treat as impersonation.
+- **Young domains (<180 days) — sender or linked — claiming an established company** → strong red flag.
+- **ATS links (Greenhouse/Lever/Workday/Ashby…)**: if the company slug matches the claimed \
+  employer, that supports legitimacy; a slug for a different company is a red flag.
+- **Careers-page scan hits showing the role on the company's own site** → genuine legitimacy support.
+Cite the specific technical finding by name in `red_flags` or `legitimate_signals` so the job \
+seeker sees the evidence, not just a conclusion.
+
+---
 ## DO THE WORK YOURSELF — DON'T HAND OUT HOMEWORK
 You are given automated intelligence with each message: live web search results, domain-age \
 and DNS checks, scam-report scans, and channel-specific lookups (phone/LinkedIn/platform). \
@@ -896,7 +1102,7 @@ def build_content(message, channel, sender_email, web_results, domain_findings, 
         + (f"Sender email: {sender_email}\n" if sender_email else "")
         + (prior_block + "\n" if prior_block else "")
         + kf_text
-        + f"\n## Automated Domain Checks (RDAP age + DNS)\n{domain_findings}\n"
+        + f"\n## Automated Technical Checks (domain age, DNS/MX/SPF/DMARC, links, email headers)\n{domain_findings}\n"
         + f"\n## Web Research\n{web_results}\n"
         + "\n## Recruiter Message\n---\n" + message + "\n---\n"
         + "\nUsing the automated checks and web research above, reach a conclusive verdict. "
@@ -976,9 +1182,16 @@ def analyze_route():
 
     keyword_flags   = detect_keyword_flags(augmented)
     web_results     = run_web_research(augmented, sender_email, channel, contact_info)
-    # Automated domain intel (RDAP age + DNS) — done up front so Claude factors it in
+    # Automated technical intel — all done up front so Claude scores on evidence
     quick           = _quick_extract(augmented, sender_email)
-    domain_findings = run_domain_checks(quick["domains"])
+    domain_findings = run_domain_checks(quick["domains"], augmented)
+    url_findings    = run_url_checks(augmented)
+    header_findings, reply_to = parse_email_headers(data.get("email_headers") or "")
+    if reply_to and reply_to not in quick["emails"]:        # Reply-To is the real destination
+        quick["emails"].append(reply_to)
+        rd = reply_to.split("@")[1]
+        if rd not in quick["domains"]: quick["domains"].append(rd)
+    tech_findings = "\n".join(b for b in (domain_findings, url_findings, header_findings) if b)
 
     # Cross-reference this sender against the user's prior entries (known/repeat contacts)
     prior_norm = {_norm(e) for e in quick["emails"]} \
@@ -991,7 +1204,7 @@ def analyze_route():
     prior_block = prior_history_block(_prior_matches(prior_norm))
 
     try:
-        analysis, usage = analyze(augmented, channel, sender_email, web_results, domain_findings, keyword_flags, prior_block)
+        analysis, usage = analyze(augmented, channel, sender_email, web_results, tech_findings, keyword_flags, prior_block)
     except ImportError:
         return jsonify({"error": "The 'openai' package is required for OpenAI/Grok. Run: pip install openai"}), 500
     except Exception as exc:
