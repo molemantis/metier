@@ -24,3 +24,7 @@ data/
 
 # Local tooling / preview config
 .claude/
+
+# Personal drafts (not part of the app)
+linkedin-post.txt
+*-post.txt
