@@ -4,17 +4,18 @@
 
 # Metier
 
-**Find your calling. Screen out the noise.** Metier is the recruiter legitimacy check for career professionals. Paste any recruiter email, LinkedIn DM, or outreach message and get an AI-powered read on whether it's worth your time — plus a tracker for every job you're pursuing.
+**Find your calling. Screen out the noise.** Metier is the recruiter legitimacy check for career professionals. Paste any recruiter email, LinkedIn DM, or outreach message and get a clear read on whether it's worth your time — plus a tracker for every job you're pursuing.
 
 *Pronounced "met-yay" — from* métier*, your calling, your craft, your vocation.*
 
+> ⚡ **Runs free, no API key required.** Metier ships with a deterministic rules engine and an updatable scam-technique database that vet every message locally — no AI bill, fully self-hostable (even on a Raspberry Pi). Add your own API key to *layer on* an AI-written deep read; without one, the rules engine is the verdict.
+
 - 🎯 **Clear verdict** — Legit, Dubious, or Scam — with the reasoning behind it
-- 🔍 **LinkedIn identity check** — does their background actually match who they claim to be?
-- 🏢 **Company intelligence** — who the company likely *actually* is
-- 💬 **Questions to send them** — tailored follow-ups that smoke out ghost jobs
-- ✅ **Verification checklist** — auto-checks domain age, DNS, and more
-- 🔗 **Cross-reference** — flags if the same identity appeared in a previous analysis
-- 🌐 **Live web research** — searches for scam reports automatically
+- ⚙️ **Deterministic technical forensics** — domain age, DNS/MX/SPF/DMARC, link & URL checks, lookalike domains, disposable inboxes, ATS-slug and email-header (spoof) analysis
+- 🧠 **Updatable scam-technique database** — fee/PII/urgency/off-channel/ghost-job patterns in a simple JSON file; add a new technique, no redeploy
+- 🔍 **Identity & impersonation checks** — corporate-domain mismatch, free-inbox executives, template/placeholder fakes
+- 🔗 **Known-contact correlation** — flags (and hard-floors) senders you previously marked as scams
+- 🌐 **Optional AI layer + live web research** — when an API key is present (Claude / OpenAI / Grok)
 - 📋 **Job tracker** — every vetted contact and self-found role in one pipeline, with status tracking
 
 ---
@@ -49,36 +50,58 @@ Know the patterns Métier checks for, and the questions any real recruiter answe
 
 ## Quick start
 
-### 1. Get an API key
-
-Sign up at **[console.anthropic.com](https://console.anthropic.com)** and create an API key.
-
-### 2. Clone and install
-
 ```bash
 git clone https://github.com/your-username/metier.git
 cd metier
 pip install -r requirements.txt
-```
-
-### 3. Add your API key
-
-```bash
-cp .env.example .env
-# Open .env and add your key
-```
-
-### 4. Run
-
-```bash
 python app.py
 ```
 
+That's it — open **[http://localhost:5000](http://localhost:5000)** and start vetting. **No API key needed**; the rules engine runs immediately and for free.
+
+### Optional: add an AI layer
+
+Want the AI-written deep read and live web research on top of the rules engine? Add a key:
+
+```bash
+cp .env.example .env
+# Open .env and add your key (any one provider)
+```
+
+When a key is present, the LLM layers on top of the deterministic baseline. When it isn't — or if the call fails — the rules engine is the verdict. You never *need* to pay for inference.
+
 ---
 
-## Choosing a model provider
+## How the verdict works
 
-Métier runs on **Claude by default**, but supports **OpenAI** and **Grok (xAI)** too. Pick one in `.env`:
+Every analysis runs the **deterministic layer** first (no API, no cost):
+
+1. **Technical forensics** — domain age (RDAP), DNS/MX/SPF/DMARC, link & URL intelligence, lookalike-domain detection, disposable-inbox checks, ATS-slug verification, and raw email-header (spoof) analysis.
+2. **Scam-technique matching** — the message is scored against the pattern database (see below).
+3. **Known-contact correlation** — a strong match to a sender you previously flagged as a scam hard-floors the verdict to Scam.
+
+These produce a 0–100 score → **Legit / Dubious / Scam** with the matched evidence as red flags. If an API key is configured, the LLM then *enriches* that baseline (it's told the rule score and may add nuance, but can't quietly score it safer without reason).
+
+## Updating the scam-technique database
+
+New scam trends are just data. Edit **[`scam_patterns.json`](scam_patterns.json)** — each entry is one technique:
+
+```json
+{
+  "category": "fee", "match_type": "keyword", "pattern": "onboarding fee",
+  "weight": 42, "severity": "critical", "polarity": "risk",
+  "title": "Upfront fee requested",
+  "explanation": "Legitimate recruiters are paid by the employer; a candidate never pays."
+}
+```
+
+`match_type` is `keyword` or `regex`; `polarity` is `risk` (raises the score) or `trust` (lowers it). Add an entry and restart — the file is synced into the database on startup, and live rows you add directly to the DB are preserved.
+
+---
+
+## Choosing a model provider (optional AI layer)
+
+If you add a key, Métier uses **Claude by default**, but supports **OpenAI** and **Grok (xAI)** too. Pick one in `.env`:
 
 ```bash
 # Claude (default)
@@ -122,7 +145,8 @@ platform like Railway, Render, or Fly.io.
 
 ```
 metier/
-├── app.py                  # Flask server + LLM providers (Claude / OpenAI / Grok)
+├── app.py                  # Flask server, rules engine, technical checks + optional LLM
+├── scam_patterns.json      # Updatable scam-technique database (synced into SQLite on startup)
 ├── templates/
 │   ├── index.html          # Analyzer
 │   ├── history.html        # Job Tracker

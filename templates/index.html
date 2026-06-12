@@ -82,6 +82,9 @@
     .tip{font-size:.71rem;color:var(--muted)}
     .err{display:none;background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);
          border-radius:7px;padding:9px 13px;font-size:.85rem;margin-top:11px}
+    .freemode{margin-top:12px;background:var(--accent-bg,#eef1f4);border:1px solid #d7dde4;
+              border-radius:8px;padding:9px 13px;font-size:.78rem;color:var(--muted);line-height:1.5}
+    .freemode span{color:var(--muted);opacity:.8}
 
     /* ── Results ── */
     #res{display:none}
@@ -318,6 +321,9 @@
         </div>
       </div>
       <div class="err" id="err"></div>
+      {% if not llm %}
+      <div class="freemode">⚡ Running free — no API key needed. Métier vets every message with its built-in checks and scam-pattern database. <span>Add your own API key to layer on an AI-written deep read.</span></div>
+      {% endif %}
     </div>
   </div>
 
@@ -718,11 +724,16 @@
     document.getElementById('rsn').textContent=d.reasoning||'';
 
     const u=d.usage||{};
-    const pts=[(u.input_tokens||0).toLocaleString()+' input'];
-    if(u.cache_read_input_tokens)pts.push(u.cache_read_input_tokens.toLocaleString()+' cached');
-    pts.push((u.output_tokens||0).toLocaleString()+' output');
-    const prov=d.provider?`Analyzed by ${d.provider} · `:'';
-    document.getElementById('tf').textContent=prov+'Tokens: '+pts.join(' · ');
+    const hasTokens = (u.input_tokens||u.output_tokens);
+    if (hasTokens) {
+      const pts=[(u.input_tokens||0).toLocaleString()+' input'];
+      if(u.cache_read_input_tokens)pts.push(u.cache_read_input_tokens.toLocaleString()+' cached');
+      pts.push((u.output_tokens||0).toLocaleString()+' output');
+      document.getElementById('tf').textContent=(d.provider?`Analyzed by ${d.provider} · `:'')+'Tokens: '+pts.join(' · ');
+    } else {
+      // Rules-only mode — no tokens, no cost
+      document.getElementById('tf').textContent=`Analyzed by ${d.provider||'Rules engine'} · free, no API used`;
+    }
 
     // Collapse detail on fresh analysis
     document.getElementById('detailBody').classList.remove('open');

@@ -30,6 +30,14 @@ LLM_MODELS = {
     "grok":      os.environ.get("GROK_MODEL",      "grok-2-latest"),
 }
 PROVIDER_LABEL = {"anthropic": "Claude", "openai": "OpenAI", "grok": "Grok"}
+_PROVIDER_KEY_ENV = {"anthropic": ("ANTHROPIC_API_KEY",), "openai": ("OPENAI_API_KEY",),
+                     "grok": ("XAI_API_KEY", "GROK_API_KEY")}
+
+def llm_available() -> bool:
+    """True if an API key is configured for the selected provider. When False,
+    Métier runs fully on the deterministic rules engine — no API needed."""
+    prov = LLM_PROVIDER if LLM_PROVIDER in LLM_MODELS else "anthropic"
+    return any(os.environ.get(k) for k in _PROVIDER_KEY_ENV[prov])
 
 def call_llm(system_prompt: str, user_text: str):
     """Single entry point for the model call. Returns (text, usage_dict).
@@ -107,6 +115,21 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_ident_normalized ON identifiers(normalized);
         CREATE INDEX IF NOT EXISTS idx_analyses_created ON analyses(created_at DESC);
+        CREATE TABLE IF NOT EXISTS scam_patterns (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            category    TEXT    NOT NULL,
+            match_type  TEXT    NOT NULL DEFAULT 'keyword',  -- 'keyword' | 'regex'
+            pattern     TEXT    NOT NULL,
+            weight      INTEGER NOT NULL DEFAULT 10,
+            severity    TEXT    NOT NULL DEFAULT 'medium',
+            polarity    TEXT    NOT NULL DEFAULT 'risk',      -- 'risk' | 'trust'
+            title       TEXT    NOT NULL DEFAULT '',
+            explanation TEXT    NOT NULL DEFAULT '',
+            active      INTEGER NOT NULL DEFAULT 1,
+            source      TEXT    NOT NULL DEFAULT 'seed',      -- 'seed' (from json) | 'manual'
+            added_at    TEXT    NOT NULL DEFAULT ''
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_pattern_uniq ON scam_patterns(category, pattern);
     """)
     # ── Migration: tracker columns (safe to run repeatedly) ──
     existing = {row[1] for row in conn.execute("PRAGMA table_info(analyses)").fetchall()}
@@ -210,12 +233,27 @@ def _lookalike_notes(host, message):
                 break
     return notes
 
-def run_url_checks(message: str) -> str:
+def _sig(category, title, weight, severity, polarity, explanation, matched=""):
+    """Build a uniform signal dict (same shape match_patterns emits)."""
+    return {"category": category, "title": title, "weight": weight, "severity": severity,
+            "polarity": polarity, "explanation": explanation, "matched": matched}
+
+def _lookalike_signals(host, message):
+    sigs = []
+    for note in _lookalike_notes(host, message):
+        crit = "PUNYCODE" in note or "DIGIT-SUBSTITUTION" in note
+        sigs.append(_sig("identity", "Lookalike / disguised domain", 35 if crit else 20,
+                         "critical" if crit else "high", "risk", note, host))
+    return sigs
+
+def run_url_checks(message: str, signals=None) -> str:
     """Deterministic link intelligence on every URL in the message body —
     shorteners, form-service 'portals', ATS slugs, lookalikes, and age checks
-    on unfamiliar linked domains. Runs before the LLM so it scores on evidence."""
+    on unfamiliar linked domains. Appends structured signals if a list is given;
+    always returns the text block for the LLM prompt."""
     urls = _extract_urls(message)
     if not urls: return ""
+    sig = signals if signals is not None else []
     lines, seen, aged = ["\n## Link & URL Checks (automated)"], set(), 0
     for url in urls[:8]:
         host, path = _url_host_path(url)
@@ -224,12 +262,17 @@ def run_url_checks(message: str) -> str:
         notes = []
         if any(_host_matches(host, s) for s in URL_SHORTENERS):
             notes.append("⚠ URL SHORTENER — destination hidden; legitimate recruiters link directly")
+            sig.append(_sig("link", "Link shortener hides the destination", 22, "high", "risk",
+                            "Legitimate recruiters link directly; shorteners conceal where you actually land.", host))
         if any(_host_matches(host, s) for s in FORM_SERVICES):
             notes.append("⚠ generic form service used as an application path — real companies use their ATS or careers site")
+            sig.append(_sig("link", "Generic form used as an application portal", 24, "high", "risk",
+                            "Real companies collect applications through their ATS or careers site, not a survey form.", host))
         ats = _ats_info(host, path)
         if ats:
             notes.append(f"ATS link ({ats[0]}), company slug “{ats[1]}” — verify the slug matches the claimed employer")
         notes += _lookalike_notes(host, message)
+        sig.extend(_lookalike_signals(host, message))
         skip = (any(_host_matches(host, s) for s in SKIP_LINK_HOSTS) or host in PERSONAL_DOMAINS
                 or any(_host_matches(host, s) for s in URL_SHORTENERS)
                 or any(_host_matches(host, s) for s in FORM_SERVICES))
@@ -239,10 +282,14 @@ def run_url_checks(message: str) -> str:
             aged += 1
             if info["age_days"] is not None and info["age_days"] < 180:
                 notes.append(f"⚠ linked domain registered only {info['age_days']} days ago ({info['reg_date']})")
-            elif info["age_days"] is not None:
-                notes.append(f"linked domain established ({info['reg_date']})")
+                crit = info["age_days"] < 30
+                sig.append(_sig("link", "Freshly-registered linked domain", 35 if crit else 20,
+                                "critical" if crit else "high", "risk",
+                                f"The linked domain was registered only {info['age_days']} days ago — created right before this outreach.", host))
             if not info["resolves"]:
                 notes.append("⚠ linked domain does not resolve")
+                sig.append(_sig("link", "Linked domain does not resolve", 18, "medium", "risk",
+                                "The destination domain doesn't resolve — it may not exist.", host))
         if notes:
             lines.append(f"- {host}: " + "; ".join(notes))
     return "\n".join(lines) if len(lines) > 1 else ""
@@ -267,15 +314,17 @@ def check_email_dns(domain: str) -> dict:
     except Exception: out["dmarc"] = False
     return out
 
-def parse_email_headers(raw: str):
+def parse_email_headers(raw: str, signals=None):
     """Parse raw email headers the user pastes from 'Show original'.
-    Returns (findings_text, reply_to_email) — the strongest spoof evidence available."""
+    Returns (findings_text, reply_to_email) and appends signals if a list is given —
+    the strongest spoof evidence available."""
     if not raw or not raw.strip(): return "", None
     from email.parser import HeaderParser
     try:
         h = HeaderParser().parsestr(raw.strip())
     except Exception:
         return "", None
+    sig = signals if signals is not None else []
     addr = lambda s: (re.search(r"[\w.+-]+@[\w.-]+", s or "") or [None]) and \
                      (re.search(r"[\w.+-]+@[\w.-]+", s or "").group(0).lower()
                       if re.search(r"[\w.+-]+@[\w.-]+", s or "") else None)
@@ -285,22 +334,36 @@ def parse_email_headers(raw: str):
     if frm: lines.append(f"From: {frm}")
     if rep and frm and dom(rep) != dom(frm):
         lines.append(f"⚠ REPLY-TO MISMATCH: From is @{dom(frm)} but replies are routed to {rep} — classic spoof/impersonation pattern")
+        sig.append(_sig("header", "Reply-To address doesn't match the sender", 45, "critical", "risk",
+                        f"The email is From @{dom(frm)} but replies route to {rep} — a classic spoofing/impersonation pattern.", rep))
     elif rep:
         lines.append(f"Reply-To: {rep} (matches From domain)")
     if rp and frm and dom(rp) != dom(frm):
         lines.append(f"⚠ Return-Path domain (@{dom(rp)}) differs from From domain (@{dom(frm)})")
+        sig.append(_sig("header", "Return-Path domain differs from sender", 20, "medium", "risk",
+                        f"The Return-Path (@{dom(rp)}) differs from the From domain (@{dom(frm)}).", rp))
     auth = h.get("Authentication-Results", "")
     if auth:
-        for mech in ("spf", "dkim", "dmarc"):
+        for mech, w in (("spf", 20), ("dkim", 20), ("dmarc", 30)):
             m = re.search(rf"{mech}=(\w+)", auth, re.IGNORECASE)
             if m:
                 r = m.group(1).lower()
-                lines.append(f"{mech.upper()}: {'pass ✓' if r == 'pass' else '⚠ ' + r.upper() + ' — sender authentication failed or missing'}")
+                if r == "pass":
+                    lines.append(f"{mech.upper()}: pass ✓")
+                    if mech == "dmarc":
+                        sig.append(_sig("header", "Email authentication passed (DMARC)", 10, "low", "trust",
+                                        "The message passed DMARC — the sending domain is authenticated.", "dmarc=pass"))
+                else:
+                    lines.append(f"{mech.upper()}: ⚠ {r.upper()} — sender authentication failed or missing")
+                    sig.append(_sig("header", f"{mech.upper()} authentication failed", w, "high", "risk",
+                                    f"{mech.upper()} is '{r}' — the sender's domain is not properly authenticated, a strong spoof signal.", f"{mech}={r}"))
     else:
         lines.append("No Authentication-Results header found in the pasted headers")
     bulk = h.get("X-Mailer", "") + " " + (h.get("List-Unsubscribe") or "")
     if re.search(r"sendgrid|mailgun|mailchimp|brevo|sendinblue|campaign", bulk, re.IGNORECASE) or h.get("List-Unsubscribe"):
         lines.append("Sent via bulk-mail infrastructure (mass outreach, not a personal note)")
+        sig.append(_sig("ai_template", "Sent via bulk-mail infrastructure", 8, "low", "risk",
+                        "Delivered through mass-mailing infrastructure — outreach blast, not a personal note.", "bulk-mailer"))
     return ("\n".join(lines) if len(lines) > 1 else ""), rep
 
 # ── Keyword pre-screening ──────────────────────────────────────────────────────
@@ -332,6 +395,166 @@ def detect_keyword_flags(message: str) -> dict:
     }
     flags["any"] = any(v for v in flags.values() if isinstance(v, list) and v)
     return flags
+
+# ── Scam-pattern store (the updatable "techniques database") ─────────────────────
+PATTERNS_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scam_patterns.json")
+
+def sync_patterns_from_json():
+    """Load scam_patterns.json into the DB. Seed rows are upserted (so edits to the
+    file propagate on restart); 'manual' rows added at runtime are never touched."""
+    try:
+        with open(PATTERNS_JSON, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return 0
+    rows = data.get("patterns", [])
+    conn = get_db()
+    try:
+        for p in rows:
+            conn.execute(
+                "INSERT INTO scam_patterns (category,match_type,pattern,weight,severity,polarity,title,explanation,active,source,added_at) "
+                "VALUES(?,?,?,?,?,?,?,?,1,'seed',?) "
+                "ON CONFLICT(category,pattern) DO UPDATE SET "
+                "match_type=excluded.match_type,weight=excluded.weight,severity=excluded.severity,"
+                "polarity=excluded.polarity,title=excluded.title,explanation=excluded.explanation "
+                "WHERE scam_patterns.source='seed'",
+                (p["category"], p.get("match_type", "keyword"), p["pattern"], int(p.get("weight", 10)),
+                 p.get("severity", "medium"), p.get("polarity", "risk"), p.get("title", ""),
+                 p.get("explanation", ""), datetime.now(timezone.utc).isoformat()))
+        conn.commit()
+        return len(rows)
+    finally:
+        conn.close()
+
+def load_active_patterns():
+    conn = get_db()
+    try:
+        return [dict(r) for r in conn.execute(
+            "SELECT category,match_type,pattern,weight,severity,polarity,title,explanation "
+            "FROM scam_patterns WHERE active=1").fetchall()]
+    finally:
+        conn.close()
+
+def match_patterns(message: str, patterns=None):
+    """Return the scam-technique signals present in the message. Each signal:
+    {category,title,explanation,weight,severity,polarity,matched}."""
+    m = (message or "").lower()
+    out, seen = [], set()
+    for p in (patterns if patterns is not None else load_active_patterns()):
+        hit = None
+        if p["match_type"] == "regex":
+            mo = re.search(p["pattern"], m, re.IGNORECASE)
+            if mo: hit = mo.group(0)
+        else:
+            if p["pattern"].lower() in m: hit = p["pattern"]
+        if not hit: continue
+        key = (p["title"], p["category"])           # dedupe repeated titles within a category
+        if key in seen: continue
+        seen.add(key)
+        out.append({"category": p["category"], "title": p["title"], "explanation": p["explanation"],
+                    "weight": p["weight"], "severity": p["severity"], "polarity": p["polarity"],
+                    "matched": hit})
+    return out
+
+# ── Deterministic scoring engine (rules-based verdict, runs with NO API key) ─────
+def score_signals(signals):
+    """Combine risk/trust signal weights into a 0–100 scam_likelihood_score
+    (higher = more scammy). Without any positive verification, a clean message
+    can't reach a confident 'Legit' — it caps at Dubious (honest 'unverified')."""
+    risk  = sum(s["weight"] for s in signals if s["polarity"] == "risk")
+    trust = sum(s["weight"] for s in signals if s["polarity"] == "trust")
+    score = max(0, min(100, risk - trust))
+    if not any(s["polarity"] == "trust" for s in signals):
+        score = max(score, 26)          # nothing verified → at most Dubious, never confident Legit
+    return score
+
+def _verdict_label(score):
+    return "Low" if score <= 25 else "Medium" if score <= 60 else "High" if score <= 80 else "Very High"
+
+_CLASS_BY_CAT = {"fee": "advance_fee", "pii": "data_harvesting", "ghost_job": "ghost_job",
+                 "identity": "impersonation", "header": "impersonation", "link": "impersonation",
+                 "off_channel": "unknown", "urgency": "unknown", "too_good": "unknown",
+                 "ai_template": "data_harvesting"}
+_CLASS_LABEL = {"advance_fee": "Upfront-payment / advance-fee scam", "data_harvesting": "Data / resume harvesting",
+                "ghost_job": "Likely ghost job", "impersonation": "Impersonation",
+                "legitimate": "No scam type detected", "unknown": "Unclear — proceed with caution"}
+
+def _classify(signals):
+    risks = [s for s in signals if s["polarity"] == "risk"]
+    if not risks: return "legitimate"
+    by = {}
+    for s in risks: by[s["category"]] = by.get(s["category"], 0) + s["weight"]
+    return _CLASS_BY_CAT.get(max(by, key=by.get), "unknown")
+
+class _RulesIdent:
+    def __init__(self, emails, domains, names):
+        self.emails, self.domains, self.recruiter_names = emails, domains, names
+        self.phone_numbers, self.company_names, self.linkedin_urls = [], [], []
+        self.recruiter_company = self.job_title = self.job_company = ""
+    def dump(self):
+        return {"emails": self.emails, "phone_numbers": self.phone_numbers,
+                "recruiter_names": self.recruiter_names, "recruiter_company": self.recruiter_company,
+                "job_title": self.job_title, "job_company": self.job_company,
+                "company_names": self.company_names, "domains": self.domains,
+                "linkedin_urls": self.linkedin_urls}
+
+class RulesAnalysis:
+    """Deterministic, RecruiterAnalysis-compatible result built purely from signals —
+    no LLM. The route can mutate score/label/red_flags (e.g. the known-scam floor)."""
+    def __init__(self, signals, quick, reply_to=None):
+        self.signals = signals
+        emails = list(quick.get("emails", []))
+        if reply_to and reply_to not in emails: emails.append(reply_to)
+        self.identifiers = _RulesIdent(emails, list(quick.get("domains", [])), list(quick.get("names", [])))
+        self.scam_likelihood_score = score_signals(signals)
+        self.scam_likelihood_label = _verdict_label(self.scam_likelihood_score)
+        risks  = sorted([s for s in signals if s["polarity"] == "risk"],  key=lambda x: -x["weight"])
+        trusts = [s for s in signals if s["polarity"] == "trust"]
+        self.red_flags = list(dict.fromkeys(s["title"] for s in risks))
+        self.legitimate_signals = list(dict.fromkeys(s["title"] for s in trusts))
+        self._ptype = _classify(signals)
+        self._risks, self._trusts = risks, trusts
+
+    def _tier(self):
+        legit = 100 - self.scam_likelihood_score
+        return "go" if legit >= 75 else "watch" if legit >= 50 else "away"
+
+    def model_dump(self):
+        tier = self._tier()
+        rec = {"away": "Do not engage — multiple scam signals detected. Don't share personal information, documents, or money.",
+               "watch": "Proceed carefully — verify the recruiter and role before sharing anything. Send the verification questions first.",
+               "go": "No red flags found and the sender's domain checks out — reasonable to proceed, but still confirm the role on the company's own careers page."}[tier]
+        detail = "; ".join(f"{s['title']} ({s['explanation']})" for s in self._risks[:4])
+        reasoning = (f"Rules-based read: {detail}." if self._risks else
+                     "No scam patterns matched and the sender's technical signals look consistent with a real company.")
+        if not self._trusts and not self._risks:
+            reasoning += " Nothing could be positively verified, so treat as unconfirmed."
+        fee = min(100, sum(s["weight"] for s in self._risks if s["category"] == "fee"))
+        return {
+            "scam_likelihood_score": self.scam_likelihood_score,
+            "scam_likelihood_label": self.scam_likelihood_label,
+            "red_flags": self.red_flags,
+            "legitimate_signals": self.legitimate_signals,
+            "recommendation": rec,
+            "reasoning": reasoning,
+            "scam_classification": {"primary_type": self._ptype,
+                "type_label": _CLASS_LABEL.get(self._ptype, ""),
+                "confidence": "High" if (self.scam_likelihood_score >= 70 or (self._trusts and not self._risks)) else "Medium",
+                "reasoning": f"Dominant signal category: {self._ptype}." if self._risks else "No scam category detected."},
+            "company_intel": {"named_company": "", "likely_identity":
+                ("Sender domain not verified as a real company." if not self._trusts else "Sender domain is consistent with an established company."),
+                "confidence": "Low", "clues": [], "identity_concerns": [s["title"] for s in self._risks if s["category"] == "identity"]},
+            "pay_to_play": {"score": fee, "label": _verdict_label(fee),
+                "signals": [s["title"] for s in self._risks if s["category"] == "fee"], "likely_tactics": []},
+            "web_presence": {"summary": "", "legitimate_findings": [], "red_flags": []},
+            "follow_up_questions": ["Can you email me from your company domain?",
+                "Who is the hiring manager for this role?",
+                "Can you send the careers-page link for this role?"],
+            "identifiers": self.identifiers.dump(),
+        }
+
+def run_rules_analysis(signals, quick, reply_to=None):
+    return RulesAnalysis(signals, quick, reply_to)
 
 def _identifier_rows(analysis_id, ids):
     rows = []
@@ -578,40 +801,68 @@ def check_domain(domain: str) -> dict:
         result["error"] = str(e)
     return result
 
-def run_domain_checks(domains: list[str], message: str = "") -> str:
+def run_domain_checks(domains: list[str], message: str = "", signals=None) -> str:
     """Automated domain intel (age via RDAP, DNS/MX/SPF/DMARC, lookalike tells) —
-    runs BEFORE Claude so the model factors it straight into the verdict."""
+    runs BEFORE Claude. Appends structured signals if a list is given."""
+    sig = signals if signals is not None else []
     lines = []
     for domain in domains[:3]:
         if not domain: continue
         if domain in DISPOSABLE_DOMAINS:
             lines.append(f"{domain}: ⚠ DISPOSABLE/TEMPORARY EMAIL DOMAIN — burner inbox, near-certain scam")
+            sig.append(_sig("identity", "Disposable/burner email domain", 50, "critical", "risk",
+                            "The sender uses a throwaway email provider — near-certain scam for recruiting outreach.", domain))
             continue
         if domain in PERSONAL_DOMAINS:
             lines.append(f"{domain}: personal email provider (gmail/yahoo/etc) — not a company domain")
             continue
         info = check_domain(domain)
+        established = False
         bits = [f"{domain}:"]
         if info["age_days"] is not None:
             if info["age_days"] < 30:
                 bits.append(f"⚠ REGISTERED ONLY {info['age_days']} DAYS AGO ({info['reg_date']}) — created right before this outreach")
+                sig.append(_sig("identity", "Sender domain registered days ago", 40, "critical", "risk",
+                                f"The sender's domain was registered only {info['age_days']} days ago ({info['reg_date']}) — created right before this outreach.", domain))
             elif info["age_days"] < 180:
                 bits.append(f"young domain, {info['age_days']} days old ({info['reg_date']})")
+                sig.append(_sig("identity", "Young sender domain", 20, "medium", "risk",
+                                f"The sender's domain is only {info['age_days']} days old.", domain))
             else:
                 bits.append(f"established, registered {info['reg_date']} ({info['age_days']} days old)")
+                established = True
         else:
             bits.append("registration date unknown")
-        bits.append("resolves (live)" if info["resolves"] else "⚠ DOES NOT RESOLVE — domain may not exist")
+        if info["resolves"]:
+            bits.append("resolves (live)")
+        else:
+            bits.append("⚠ DOES NOT RESOLVE — domain may not exist")
+            sig.append(_sig("identity", "Sender domain does not resolve", 28, "high", "risk",
+                            "The sender's domain doesn't resolve in DNS — it may not exist.", domain))
         mail = check_email_dns(domain)
+        good_mail = False
         if mail["mx"] is not None:
             if not mail["mx"]:
                 bits.append("⚠ NO MX RECORDS — this domain cannot receive email; a 'corporate' sender here is spoofed")
+                sig.append(_sig("identity", "Sender domain can't receive email (no MX)", 40, "critical", "risk",
+                                "The 'corporate' domain has no MX records — it cannot receive mail, so the sender is almost certainly spoofed.", domain))
             else:
                 missing = [k.upper() for k in ("spf", "dmarc") if mail[k] is False]
-                bits.append("mail infra: MX ✓ " + ("SPF/DMARC ✓" if not missing
-                            else "⚠ missing " + "/".join(missing) + " — unusual for a real company domain"))
+                if missing:
+                    bits.append("mail infra: MX ✓ ⚠ missing " + "/".join(missing) + " — unusual for a real company domain")
+                    sig.append(_sig("identity", "Sender domain missing " + "/".join(missing), 12, "medium", "risk",
+                                    "Established company domains normally publish SPF and DMARC; their absence is unusual.", domain))
+                else:
+                    bits.append("mail infra: MX ✓ SPF/DMARC ✓")
+                    good_mail = True
+        if good_mail and info["resolves"]:
+            w = 18 if established else 12
+            note = (f"{domain} is an established domain ({info['reg_date']}) with proper MX/SPF/DMARC — consistent with a real company."
+                    if established else f"{domain} has proper MX/SPF/DMARC mail infrastructure — consistent with a real company.")
+            sig.append(_sig("identity", "Corporate domain with valid mail setup", w, "medium", "trust", note, domain))
         for n in _lookalike_notes(domain, message):
             bits.append(n)
+        sig.extend(_lookalike_signals(domain, message))
         lines.append(" ".join(bits))
     return "\n".join(lines) if lines else "No company domains to check."
 
@@ -1084,7 +1335,7 @@ _ANALYSIS_SCHEMA = """\
 
 # ── Analysis ───────────────────────────────────────────────────────────────────
 
-def build_content(message, channel, sender_email, web_results, domain_findings, keyword_flags=None, prior_block=""):
+def build_content(message, channel, sender_email, web_results, domain_findings, keyword_flags=None, prior_block="", rules_baseline=""):
     kf_text = ""
     if keyword_flags and keyword_flags.get("any"):
         kf_text = "\n## ⚠ Pre-screening Keyword Alerts (auto-detected)\n"
@@ -1101,6 +1352,7 @@ def build_content(message, channel, sender_email, web_results, domain_findings, 
         f"Channel: {channel}\n"
         + (f"Sender email: {sender_email}\n" if sender_email else "")
         + (prior_block + "\n" if prior_block else "")
+        + (rules_baseline + "\n" if rules_baseline else "")
         + kf_text
         + f"\n## Automated Technical Checks (domain age, DNS/MX/SPF/DMARC, links, email headers)\n{domain_findings}\n"
         + f"\n## Web Research\n{web_results}\n"
@@ -1112,6 +1364,20 @@ def build_content(message, channel, sender_email, web_results, domain_findings, 
     )
     return text
 
+def _rules_baseline_block(rules):
+    """Compact summary of the deterministic engine's read, injected so the LLM
+    enriches it rather than starting blind. The LLM may override with justification."""
+    if rules is None: return ""
+    d = rules.model_dump()
+    lines = [f"\n## Deterministic baseline (Métier's rule engine already scored this)",
+             f"Baseline scam_likelihood_score: {d['scam_likelihood_score']} ({d['scam_likelihood_label']}); "
+             f"suspected type: {d['scam_classification']['primary_type']}."]
+    if d["red_flags"]:           lines.append("Rule-matched red flags: " + "; ".join(d["red_flags"][:8]))
+    if d["legitimate_signals"]:  lines.append("Rule-matched trust signals: " + "; ".join(d["legitimate_signals"]))
+    lines.append("Use this as your floor: do not score SAFER than the baseline without a concrete, stated reason. "
+                 "You may add nuance from the message wording the rules can't see.")
+    return "\n".join(lines)
+
 def _extract_json(text: str) -> str:
     """Strip any preamble/postamble and return the raw JSON object."""
     text = text.strip()
@@ -1121,15 +1387,15 @@ def _extract_json(text: str) -> str:
         raise ValueError(f"No JSON object found in response: {text[:300]}")
     return text[start:end+1]
 
-def analyze(message, channel, sender_email, web_results, domain_findings, keyword_flags=None, prior_block=""):
-    user_text = build_content(message, channel, sender_email, web_results, domain_findings, keyword_flags, prior_block)
+def analyze(message, channel, sender_email, web_results, domain_findings, keyword_flags=None, prior_block="", rules_baseline=""):
+    user_text = build_content(message, channel, sender_email, web_results, domain_findings, keyword_flags, prior_block, rules_baseline)
     text, usage = call_llm(SYSTEM_PROMPT, user_text)
     return RecruiterAnalysis.model_validate_json(_extract_json(text)), usage
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route("/")
-def index(): return render_template("index.html")
+def index(): return render_template("index.html", llm=llm_available())
 
 @app.route("/history")
 def history(): return render_template("history.html")
@@ -1180,18 +1446,27 @@ def analyze_route():
     elif channel == "other" and contact_info:
         augmented = f"Source platform: {contact_info}\n\n" + message
 
-    keyword_flags   = detect_keyword_flags(augmented)
-    web_results     = run_web_research(augmented, sender_email, channel, contact_info)
-    # Automated technical intel — all done up front so Claude scores on evidence
-    quick           = _quick_extract(augmented, sender_email)
-    domain_findings = run_domain_checks(quick["domains"], augmented)
-    url_findings    = run_url_checks(augmented)
-    header_findings, reply_to = parse_email_headers(data.get("email_headers") or "")
+    keyword_flags = detect_keyword_flags(augmented)
+    quick         = _quick_extract(augmented, sender_email)
+
+    # ── Deterministic technical + pattern signals (NO API key needed) ──
+    signals = []
+    domain_findings = run_domain_checks(quick["domains"], augmented, signals)
+    url_findings    = run_url_checks(augmented, signals)
+    header_findings, reply_to = parse_email_headers(data.get("email_headers") or "", signals)
     if reply_to and reply_to not in quick["emails"]:        # Reply-To is the real destination
         quick["emails"].append(reply_to)
         rd = reply_to.split("@")[1]
-        if rd not in quick["domains"]: quick["domains"].append(rd)
+        if rd not in quick["domains"]:
+            quick["domains"].append(rd)
+            run_domain_checks([rd], augmented, signals)     # vet the real reply-to domain too
+    signals += match_patterns(augmented)
     tech_findings = "\n".join(b for b in (domain_findings, url_findings, header_findings) if b)
+
+    # Web research only feeds the LLM layer — skip its latency in rules-only mode
+    use_llm     = llm_available()
+    web_results = run_web_research(augmented, sender_email, channel, contact_info) if use_llm \
+                  else "Not run (rules-only mode)."
 
     # Cross-reference this sender against the user's prior entries (known/repeat contacts)
     prior_norm = {_norm(e) for e in quick["emails"]} \
@@ -1203,16 +1478,20 @@ def analyze_route():
         prior_norm.add(_norm(contact_info).rstrip("/"))
     prior_block = prior_history_block(_prior_matches(prior_norm))
 
-    try:
-        analysis, usage = analyze(augmented, channel, sender_email, web_results, tech_findings, keyword_flags, prior_block)
-    except ImportError:
-        return jsonify({"error": "The 'openai' package is required for OpenAI/Grok. Run: pip install openai"}), 500
-    except Exception as exc:
-        low = str(exc).lower()
-        prov = PROVIDER_LABEL.get(LLM_PROVIDER, "Claude")
-        if any(k in low for k in ("api key", "api_key", "authentication", "unauthorized", "401")):
-            return jsonify({"error": f"Invalid or missing API key for {prov}. Check your .env file."}), 401
-        return jsonify({"error": f"{prov} API error: {exc}"}), 502
+    # ── Hybrid verdict: rules engine is the baseline; the LLM layers on top if a key exists ──
+    rules = run_rules_analysis(signals, quick, reply_to)
+    analysis, usage, provider_label = None, {}, "Rules engine (no AI)"
+    if use_llm:
+        try:
+            analysis, usage = analyze(augmented, channel, sender_email, web_results, tech_findings,
+                                      keyword_flags, prior_block, _rules_baseline_block(rules))
+            provider_label = f"{PROVIDER_LABEL.get(LLM_PROVIDER, 'Claude')} + rules"
+        except ImportError:
+            return jsonify({"error": "The 'openai' package is required for OpenAI/Grok. Run: pip install openai"}), 500
+        except Exception:
+            analysis = None     # any LLM failure → fall back to the deterministic engine, never error out
+    if analysis is None:
+        analysis = rules                # rules engine IS the verdict (free, no key)
 
     # Correlate against prior entries; a strong match to a known Scam forces a Scam verdict.
     cross_refs = find_cross_references(analysis, -1)
@@ -1222,10 +1501,10 @@ def analyze_route():
     result = analysis.model_dump()
     result["analysis_id"]       = analysis_id
     result["cross_references"]  = cross_refs
-    result["web_research_ran"]  = bool(web_results and "unavailable" not in web_results)
+    result["web_research_ran"]  = bool(use_llm and web_results and "unavailable" not in web_results)
     result["keyword_flags"]     = keyword_flags
-    result["provider"]          = PROVIDER_LABEL.get(LLM_PROVIDER, "Claude")
-    result["usage"]             = dict(usage)
+    result["provider"]          = provider_label
+    result["usage"]             = dict(usage) if usage else {}
     return jsonify(result)
 
 @app.route("/api/history")
@@ -1345,6 +1624,7 @@ def api_analysis(analysis_id):
 # ── Startup ────────────────────────────────────────────────────────────────────
 
 init_db()
+sync_patterns_from_json()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
