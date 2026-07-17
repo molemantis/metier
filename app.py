@@ -233,10 +233,12 @@ def _lookalike_notes(host, message):
                 break
     return notes
 
-def _sig(category, title, weight, severity, polarity, explanation, matched=""):
-    """Build a uniform signal dict (same shape match_patterns emits)."""
+def _sig(category, title, weight, severity, polarity, explanation, matched="", strong=False):
+    """Build a uniform signal dict (same shape match_patterns emits).
+    `strong` marks a trust signal that actually verifies the sender (e.g. DMARC pass) —
+    only strong trust can lift a verdict to confident 'Legit'."""
     return {"category": category, "title": title, "weight": weight, "severity": severity,
-            "polarity": polarity, "explanation": explanation, "matched": matched}
+            "polarity": polarity, "explanation": explanation, "matched": matched, "strong": strong}
 
 def _lookalike_signals(host, message):
     sigs = []
@@ -351,8 +353,8 @@ def parse_email_headers(raw: str, signals=None):
                 if r == "pass":
                     lines.append(f"{mech.upper()}: pass ✓")
                     if mech == "dmarc":
-                        sig.append(_sig("header", "Email authentication passed (DMARC)", 10, "low", "trust",
-                                        "The message passed DMARC — the sending domain is authenticated.", "dmarc=pass"))
+                        sig.append(_sig("header", "Sender verified — DMARC authentication passed", 22, "low", "trust",
+                                        "The message passed DMARC — the sender genuinely owns the From domain (not spoofed).", "dmarc=pass", strong=True))
                 else:
                     lines.append(f"{mech.upper()}: ⚠ {r.upper()} — sender authentication failed or missing")
                     sig.append(_sig("header", f"{mech.upper()} authentication failed", w, "high", "risk",
@@ -459,13 +461,16 @@ def match_patterns(message: str, patterns=None):
 # ── Deterministic scoring engine (rules-based verdict, runs with NO API key) ─────
 def score_signals(signals):
     """Combine risk/trust signal weights into a 0–100 scam_likelihood_score
-    (higher = more scammy). Without any positive verification, a clean message
-    can't reach a confident 'Legit' — it caps at Dubious (honest 'unverified')."""
+    (higher = more scammy). A confident 'Legit' requires STRONG verification
+    (e.g. DMARC-pass proving the sender owns the domain). A domain merely looking
+    real is only 'not a red flag' — it can lower the score but not clear the
+    Dubious cap on its own, so an unverified sender is never marked 'totally safe'."""
     risk  = sum(s["weight"] for s in signals if s["polarity"] == "risk")
     trust = sum(s["weight"] for s in signals if s["polarity"] == "trust")
     score = max(0, min(100, risk - trust))
-    if not any(s["polarity"] == "trust" for s in signals):
-        score = max(score, 26)          # nothing verified → at most Dubious, never confident Legit
+    strong_trust = any(s["polarity"] == "trust" and s.get("strong") for s in signals)
+    if not strong_trust:
+        score = max(score, 26)          # unverified sender → at most Dubious, never confident Legit
     return score
 
 def _verdict_label(score):
@@ -677,7 +682,9 @@ def find_cross_references(analysis, exclude_id):
     for p in ids.phone_numbers:
         n = _norm_phone(p)
         if len(n)>=7: normed.add(n)
-    for d in ids.domains:       normed.add(_norm(d))
+    for d in ids.domains:                          # skip free/shared providers — a shared
+        if _norm(d) not in FREE_EMAIL_DOMAINS:      # gmail.com/outlook.com is NOT a known contact
+            normed.add(_norm(d))
     for u in ids.linkedin_urls: normed.add(_norm(u).rstrip("/"))
     for n in ids.recruiter_names: normed.add(_norm(n))
     for c in ids.company_names:   normed.add(_norm(c))
